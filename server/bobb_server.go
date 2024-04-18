@@ -262,7 +262,6 @@ func dbHandler(op string, request any, w http.ResponseWriter, r *http.Request) {
 		log.Println(response)
 		return
 	}
-	bobb.Trace("---- json marshal response complete")
 	w.Write(jsonData)
 	bobb.Trace(op + " == request complete ==")
 }
