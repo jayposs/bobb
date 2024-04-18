@@ -1,0 +1,6 @@
+{
+    "dbPath": "/home/jay/data/bobb_test.db",
+    "port":   "8000",
+    "trace":  "on",
+    "logPath": "/home/jay/data/bobb_run.log"
+}

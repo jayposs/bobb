@@ -1,0 +1,8 @@
+{
+    "location_zip": {
+        "dataBkt": "location",
+        "indexBkt": "location_zipbig_index",
+        "DataFlds": ["zip"],
+        "DataIdFld": "id"
+    }
+}
