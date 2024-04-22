@@ -75,6 +75,8 @@ var httpClient *http.Client
 var locationData map[string]Location // loaded from location_data.json file, key is Id value
 
 func main() {
+	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
+
 	log.Println("demo program starting")
 
 	//bo.BaseURL = "http://localhost:8000/" // must be where server is listening

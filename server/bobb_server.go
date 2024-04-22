@@ -6,6 +6,7 @@
 package main
 
 import (
+	"compress/gzip"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 
 	"bobb"
@@ -21,13 +23,20 @@ import (
 )
 
 var settings struct {
-	DBPath  string `json:"dbPath"`  // location & name of db file
-	Port    string `json:"port"`    // what port server listens on
-	Trace   string `json:"trace"`   // if "on" calls to bobb.Trace will write to log
-	LogPath string `json:"logPath"` // if not "", log output will be to this file
+	DBPath           string `json:"dbPath"`  // location & name of db file
+	Port             string `json:"port"`    // what port server listens on
+	Trace            string `json:"trace"`   // if "on" calls to bobb.Trace will write to log
+	LogPath          string `json:"logPath"` // if not "", log output will be to this file
+	CompressResponse bool   `json:"compressResponse"`
 }
 var db *bolt.DB
 var logFile *os.File
+
+var gzipWriterPool = &sync.Pool{
+	New: func() interface{} {
+		return gzip.NewWriter(nil)
+	},
+}
 
 func main() {
 	var err error
@@ -262,7 +271,11 @@ func dbHandler(op string, request any, w http.ResponseWriter, r *http.Request) {
 		log.Println(response)
 		return
 	}
-	w.Write(jsonData)
+	if settings.CompressResponse {
+		compressResponse(jsonData, w)
+	} else {
+		w.Write(jsonData)
+	}
 	bobb.Trace(op + " == request complete ==")
 }
 
@@ -298,5 +311,19 @@ func shutDown() {
 	log.Println("db closed")
 	if logFile != nil {
 		logFile.Close()
+	}
+}
+
+// compressResponse returns compressed http response
+func compressResponse(jsonData []byte, w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Encoding", "gzip")
+	compressor := gzipWriterPool.Get().(*gzip.Writer)
+	compressor.Reset(w)
+	_, err := compressor.Write(jsonData)
+	compressor.Close()
+	gzipWriterPool.Put(compressor)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }

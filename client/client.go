@@ -4,6 +4,7 @@ package client
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"errors"
 	"io"
@@ -32,6 +33,7 @@ func Run(httpClient *http.Client, op string, payload interface{}) (*bobb.Respons
 
 	req, err := http.NewRequest("POST", reqUrl, reqBody)
 	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Accept-Encoding", "gzip")
 
 	resp, doErr := httpClient.Do(req)
 	defer func() {
@@ -46,7 +48,16 @@ func Run(httpClient *http.Client, op string, payload interface{}) (*bobb.Respons
 		}
 		return nil, doErr
 	}
-	result, err := io.ReadAll(resp.Body) // -> []byte
+
+	var result []byte
+	encoding := resp.Header.Get("Content-Encoding")
+	if encoding == "gzip" {
+		gzipContent, _ := gzip.NewReader(resp.Body)
+		result, err = io.ReadAll(gzipContent)
+		gzipContent.Close()
+	} else {
+		result, err = io.ReadAll(resp.Body)
+	}
 	if err != nil {
 		log.Println("Read Http Response.Body Failed:", err)
 		return nil, err
