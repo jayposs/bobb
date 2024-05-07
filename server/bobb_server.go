@@ -112,7 +112,10 @@ func main() {
 		var request bobb.CopyDBRequest
 		dbHandler(bobb.OpCopyDB, &request, w, r)
 	})
-
+	http.HandleFunc("/putbkts", func(w http.ResponseWriter, r *http.Request) {
+		var request bobb.PutBktsRequest
+		dbHandler(bobb.OpPutBkts, &request, w, r)
+	})
 	// activates Trace() calls in code, see scripts/traceon.sh
 	http.HandleFunc("/traceon", func(w http.ResponseWriter, r *http.Request) {
 		bobb.TraceStatus.Set("on") // see util.go
@@ -252,6 +255,12 @@ func dbHandler(op string, request any, w http.ResponseWriter, r *http.Request) {
 			response = bobb.CopyDB(tx, request.(*bobb.CopyDBRequest))
 			jsonData, jsonErr = json.Marshal(response)
 			return nil
+		})
+	case bobb.OpPutBkts:
+		txErr = db.Update(func(tx *bolt.Tx) error {
+			response, dbErr = bobb.PutBkts(tx, request.(*bobb.PutBktsRequest))
+			jsonData, jsonErr = json.Marshal(response)
+			return dbErr
 		})
 	}
 	if txErr != nil {

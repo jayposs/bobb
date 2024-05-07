@@ -79,6 +79,17 @@ type PutRequest struct {
 	Recs     [][]byte `json:"recs"`     // records to be added or replaced in db
 }
 
+// PutBktsRequest is used to add or replace records in 2 bkts with 1 transaction.
+// For example: adding new order and order items.
+// If either bkt update fails, complete transaction is rolled back.
+type PutBktsRequest struct {
+	BktName  string   `json:"bktName"`
+	KeyField string   `json:"keyField"` // field in Rec containing value to be used as key
+	Recs     [][]byte `json:"recs"`     // records to be added or replaced in bkt 1
+	Bkt2Name string   `json:"bkt2Name"`
+	Recs2    [][]byte `json:"recs2"` // records to be added or replaced in bkt 2
+}
+
 // PutOneRequest is used to add or replace a single record.
 // Rec must include the field to be used as the key (unique id).
 // Rec is the json marshaled value of the record type.

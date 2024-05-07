@@ -25,7 +25,7 @@ Generally speaking, Bobb does not try to minimize memory use. Results are stored
 3. DB handler func creates response which is returned to client  
 
 **Transactions**  
-All requests are done inside a bbolt transaction. Updates will be rolled back if a database error occurs. Updates are committed when a transaction completes successfully. Multi bucket transactions are not supported by Bobb, since all requests work with a single bucket. Bbolt does allow for multi bucket updates inside a single transaction. Perhaps this functionality can be added to Bobb in the future.
+All requests are done inside a bbolt transaction. Updates will be rolled back if a database error occurs. Updates are committed when a transaction completes successfully.
 
 ## API
 
@@ -63,6 +63,7 @@ The db server program receives http requests from client progams and calls the a
 * GetAllKeys - like GetAll but returns key values
 * GetIndex - works like GetAll but uses index bkt to speed processing
 * Put - put multiple records
+* PutBkts (added May 3, 2024) - put records to 2 buckets in a single transaction
 * PutOne - put a single record
 * PutIndex - put records into an index bucket
 * Qry - return records meeting selection criteria in sorted order

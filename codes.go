@@ -17,6 +17,7 @@ const (
 	OpExport     = "export"
 	OpClose      = "close"
 	OpCopyDB     = "copydb"
+	OpPutBkts    = "putbkts"
 )
 
 // Response Status Values

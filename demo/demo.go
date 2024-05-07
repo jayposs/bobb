@@ -108,6 +108,7 @@ func main() {
 	getNextSeq()
 	export()
 	copyDB()
+	putBkts() // new feature added May 1, 2024
 
 	log.Println("*** Demo Pgm Finished Successfully ***")
 }
@@ -583,8 +584,79 @@ func copyDB() {
 	log.Println("-- copyDB done -----")
 }
 
+// -- putBkts ---------------------------------------------------
+// new feature added 2024-5-1
+func putBkts() {
+	log.Println("-- putBkts starting -----")
+
+	bo.DeleteBkt(httpClient, "order")
+	bo.CreateBkt(httpClient, "order")
+	bo.DeleteBkt(httpClient, "order_item")
+	bo.CreateBkt(httpClient, "order_item")
+
+	type order struct {
+		Id         string `json:"id"` // customerid_bktseqno
+		OrderDate  string `json:"orderDate"`
+		CustomerId string `json:"customerId"`
+	}
+	type orderItem struct {
+		Id        string `json:"id"` // orderid_itemno
+		OrderId   string `json:"orderId"`
+		ItemNo    int    `json:"itemNo"`
+		ProductId string `json:"productId"`
+		Qty       int    `json:"qty"`
+	}
+	var order1 = order{
+		Id:         "00377_00005244",
+		OrderDate:  "2024-05-23",
+		CustomerId: "00377",
+	}
+	var items = []orderItem{
+		{"00377_00005244_001", "00377_00005244", 1, "A4576", 2},
+		{"00377_00005244_002", "00377_00005244", 2, "A1721", 1},
+		{"00377_00005244_003", "00377_00005244", 3, "C1600", 5},
+	}
+
+	jsonOrder, _ := json.Marshal(&order1)
+	jsonItems := make([][]byte, len(items))
+	for i, item := range items {
+		jsonItem, _ := json.Marshal(&item)
+		jsonItems[i] = jsonItem
+	}
+	req := bobb.PutBktsRequest{
+		BktName:  "order",
+		KeyField: "id",
+		Recs:     [][]byte{jsonOrder},
+		Bkt2Name: "order_item",
+		Recs2:    jsonItems,
+	}
+	resp, err := bo.Run(httpClient, bobb.OpPutBkts, req)
+	checkResp(resp, err, "putBkts")
+
+	// verify order in db matches order sent
+	var savedOrder order // order saved to db
+	bo.GetOne(httpClient, "order", order1.Id, &savedOrder)
+	if order1 != savedOrder {
+		log.Fatalln("putBkts db order does not match sent order")
+	}
+
+	// verify order items in db match items sent
+	req2 := bobb.GetAllRequest{BktName: "order_item"}
+	resp2, _ := bo.Run(httpClient, bobb.OpGetAll, req2)
+
+	var savedItem orderItem
+	for i, jsonRec := range resp2.Recs {
+		json.Unmarshal(jsonRec, &savedItem)
+		if items[i] != savedItem {
+			log.Fatalln("putBkts db item does not match sent item")
+		}
+	}
+	log.Println("-- putBkts done -----")
+}
+
 // --------------------------------------------------------------
 
+// load test data from json file into map locationData
 func loadLocationData(fileName string) {
 	jsonData, err := os.ReadFile(fileName)
 	if err != nil {

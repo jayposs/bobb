@@ -4,14 +4,31 @@
 package bobb
 
 import (
+	"errors"
 	"log"
 	"strings"
 
 	bolt "go.etcd.io/bbolt"
 )
 
-// Put adds or replaces records, based on existence of key.
-// The KeyField specified in the request is used as the key and this field must exist in all request.Recs.
+// putRec used by Put, PutBkts, PutOne funcs.
+// It adds or replaces a record in the bkt based on existence of key.
+// The value of keyField is used as the record key and this field must exist in rec.
+func putRec(bkt *bolt.Bucket, rec []byte, keyField string) error {
+	key := recGetStr(rec, keyField)
+	if key == "" {
+		log.Println("key value not found in record for specified KeyField - ", keyField)
+		log.Println(string(rec))
+		return errors.New("KeyField not in record for Put request - " + keyField)
+	}
+	err := bkt.Put([]byte(key), rec)
+	if err != nil {
+		log.Println("db error - put failed", err)
+	}
+	return err
+}
+
+// Put adds or replaces records in specified bkt.
 func Put(tx *bolt.Tx, req *PutRequest) (*Response, error) {
 
 	resp := new(Response)
@@ -25,17 +42,8 @@ func Put(tx *bolt.Tx, req *PutRequest) (*Response, error) {
 		return resp, nil
 	}
 	for _, rec := range req.Recs { // req.Recs is [][]byte
-		key := recGetStr(rec, req.KeyField)
-		if key == "" {
-			log.Println("key value not found in record for specified KeyField - ", req.KeyField)
-			log.Println(string(rec))
-			resp.Status = StatusFail
-			resp.Msg = "key value not found in record for specified KeyField - " + req.KeyField
-			return resp, nil
-		}
-		err := bkt.Put([]byte(key), rec)
+		err := putRec(bkt, rec, req.KeyField)
 		if err != nil {
-			log.Println("db error - put failed", err)
 			return nil, err // trans will be rolled back and err returned to client
 		}
 		resp.PutCnt++
@@ -44,7 +52,44 @@ func Put(tx *bolt.Tx, req *PutRequest) (*Response, error) {
 	return resp, nil
 }
 
-// PutOne adds or replaces a single record. Works same as Put.
+// PutBkts adds or replaces records in 2 bkts with a single transaction (tx).
+func PutBkts(tx *bolt.Tx, req *PutBktsRequest) (*Response, error) {
+
+	resp := new(Response)
+	if req.KeyField == "" {
+		resp.Status = StatusFail
+		resp.Msg = "request KeyField cannot be blank"
+		return resp, nil
+	}
+	bkt1 := openBkt(tx, resp, req.BktName)
+	if bkt1 == nil {
+		return resp, nil
+	}
+	bkt2 := openBkt(tx, resp, req.Bkt2Name)
+	if bkt2 == nil {
+		return resp, nil
+	}
+	// -- process puts for bkt 1 -----------------------------------
+	for _, rec := range req.Recs { // req.Recs is [][]byte
+		err := putRec(bkt1, rec, req.KeyField)
+		if err != nil {
+			return nil, err // trans will be rolled back and err returned to client
+		}
+		resp.PutCnt++
+	}
+	// -- process puts for bkt 2 -----------------------------------
+	for _, rec := range req.Recs2 { // req.Recs2 is [][]byte
+		err := putRec(bkt2, rec, req.KeyField)
+		if err != nil {
+			return nil, err // trans will be rolled back and err returned to client
+		}
+		resp.PutCnt++
+	}
+	resp.Status = StatusOk
+	return resp, nil
+}
+
+// PutOne adds or replaces a single record.
 func PutOne(tx *bolt.Tx, req *PutOneRequest) (*Response, error) {
 
 	resp := new(Response)
@@ -57,16 +102,8 @@ func PutOne(tx *bolt.Tx, req *PutOneRequest) (*Response, error) {
 	if bkt == nil {
 		return resp, nil
 	}
-	key := recGetStr(req.Rec, req.KeyField)
-	if key == "" {
-		log.Println("key value not found in record", req.KeyField)
-		resp.Status = StatusFail
-		resp.Msg = "key value not found in record - " + req.KeyField
-		return resp, nil
-	}
-	err := bkt.Put([]byte(key), req.Rec)
+	err := putRec(bkt, req.Rec, req.KeyField)
 	if err != nil {
-		log.Println("db error - put failed", err)
 		return nil, err // trans will be rolled back and err returned to client
 	}
 	resp.PutCnt = 1
