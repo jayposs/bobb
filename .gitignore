@@ -1,2 +1,6 @@
-server/*
-!server/bobb_server.go
+*.json
+*.db
+*.log
+!bobb_settings.json
+!location_data.json
+!index_settings.json

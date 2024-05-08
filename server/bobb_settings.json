@@ -1,7 +1,7 @@
 {
-    "dbPath": "/home/jay/data/bobb_test.db",
+    "dbPath": "bobb_test.db",
     "port":   "8000",
-    "trace":  "on",
-    "logPath": "/home/jay/data/bobb_run.log",
-    "compressResponse": true
+    "trace":  "off",
+    "logPath": "bobb_run.log",
+    "compressResponse": false
 }
