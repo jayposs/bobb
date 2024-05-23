@@ -3,6 +3,9 @@
 ### Motivation 
 I wanted a database that was simple to setup and easy to understand. Most popular databases are pretty scary to manage yourself. Services are expensive and have other issues.  
 
+### Change Log 
+To see detailed information on changes, see changelog.md.  
+
 ### Overview
 Bobb uses bbolt (fork of bolt db) for all the dirty work. Bbolt is a Go based key/value store that is screaming fast when it comes to reading data, but very minimalistic. It is an embedded db which means it runs as part of the main Go program accessing the db. Only 1 program can access the database file at a time.
   

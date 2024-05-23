@@ -22,3 +22,10 @@ Provides ability to put records to 2 bkts in a single transaction.
 * Move common code that was in Put, PutOne to putRec
 * Add type PutBktsRequest to types.go
 * Add handler logic for "putbkts" request to bobb_server.go  
+
+**May 23, 2024 - Add demodata pkg**
+  
+Separate db types and funcs from demo.go main pgm.
+
+* demodata/datatypes.go - db record types
+* demodata/datafuncs.go - convert db recs from/to json recs using generic funcs

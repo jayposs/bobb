@@ -4,7 +4,6 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -14,65 +13,15 @@ import (
 
 	"bobb"
 	bo "bobb/client"
+	data "bobb/demodata" // data types(datatypes.go) & conversion funcs(datafuncs.go)
 )
 
 const locationBkt = "location"                // name of bkt used for all tests
 const locationZipIndex = "location_zip_index" // index bkt
 
-type Agent struct {
-	Id   int    `json:"id"`
-	Name string `json:"name"`
-}
-
-// db records are json.Marshalled Location objects
-type Location struct {
-	Id           string   `json:"id"`
-	Address      string   `json:"address"`
-	City         string   `json:"city"`
-	St           string   `json:"st"`
-	Zip          string   `json:"zip"`
-	LocationType int      `json:"locationType"`
-	LastActionDt string   `json:"lastActionDt"` // "yyyy-mm-dd"
-	Notes        []string `json:"notes"`
-	LocAgent     Agent    `json:"agent"`
-}
-
-// See update() func below for example usage.
-// Ex scenario, web app sends obj with update values for some of the record fields.
-func (rec *Location) Update(updates map[string]any) error {
-	var err error
-	var ok bool
-	for k, v := range updates {
-		switch k {
-		case "address":
-			rec.Address, ok = v.(string)
-		case "city":
-			rec.City, ok = v.(string)
-		case "st":
-			rec.St, ok = v.(string)
-		case "zip":
-			rec.Zip, ok = v.(string)
-		case "locationType":
-			rec.LocationType, ok = v.(int)
-		case "lastActionDt":
-			rec.LastActionDt, ok = v.(string)
-		case "notes":
-			rec.Notes, ok = v.([]string)
-		default:
-			err = errors.New("Location.Update invalid update fld name:" + k)
-			break
-		}
-		if !ok {
-			err = errors.New(("Location.Update invalid value type for:" + k))
-			break
-		}
-	}
-	return err
-}
-
 var httpClient *http.Client
 
-var locationData map[string]Location // loaded from location_data.json file, key is Id value
+var locationData map[string]data.Location // loaded from location_data.json file, key is Id value
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
@@ -81,7 +30,7 @@ func main() {
 
 	//bo.BaseURL = "http://localhost:8000/" // must be where server is listening
 
-	//bo.Debug = true
+	bo.Debug = false
 
 	httpClient = new(http.Client)
 
@@ -119,15 +68,15 @@ func main() {
 func put() {
 	log.Println("-- put starting -----")
 
+	// Put requires records be json.Marshalled
+	putRecs := data.MapToJson(locationData) // convert map of db recs to slice of json recs
+	if putRecs == nil {
+		log.Fatalln("put failed")
+	}
 	req := bobb.PutRequest{
 		BktName:  locationBkt,
 		KeyField: "id", // json tag value of key field
-		Recs:     make([][]byte, 0, len(locationData)),
-	}
-	// Put requires records be json.Marshalled
-	for _, rec := range locationData {
-		jsonRec, _ := json.Marshal(&rec)
-		req.Recs = append(req.Recs, jsonRec)
+		Recs:     putRecs,
 	}
 	resp, err := bo.Run(httpClient, bobb.OpPut, req)
 
@@ -148,8 +97,7 @@ func get(recIds ...string) {
 	resp, err := bo.Run(httpClient, bobb.OpGet, req)
 	checkResp(resp, err, "get")
 
-	// unmarshal result recs into a map
-	results := saveResultsToMap(resp.Recs)
+	results := data.JsonToMap(resp.Recs, data.Location{}) // convert resp recs to map of Location recs
 
 	// confirm results match desired results
 	for _, id := range recIds {
@@ -171,10 +119,11 @@ func getAll() {
 	resp, err := bo.Run(httpClient, bobb.OpGetAll, req)
 	checkResp(resp, err, "getAll")
 
-	results := saveResultsToMap(resp.Recs)
+	results := data.JsonToMap(resp.Recs, data.Location{}) // convert resp recs to map of Location recs
 
 	// confirm results match desired results
 	for id, original := range locationData {
+		log.Println(results[id])
 		compare(original, results[id], "getAll")
 	}
 	log.Println("-- getAll done -----")
@@ -202,7 +151,7 @@ func putOne(id string) {
 func getOne(id string) {
 	log.Println("-- getOne starting -----")
 
-	var result Location
+	var result data.Location
 	err := bo.GetOne(httpClient, locationBkt, id, &result) // use shortcut func in client pkg
 	if err != nil {
 		log.Fatalln(err)
@@ -227,7 +176,7 @@ func getAllRange(start, end string) {
 	resp, err := bo.Run(httpClient, bobb.OpGetAll, req)
 	checkResp(resp, err, "getAllRange")
 
-	results := saveResultsToMap(resp.Recs)
+	results := data.JsonToMap(resp.Recs, data.Location{}) // convert resp recs to map of Location recs
 
 	// confirm results match desired results
 	for id, original := range locationData {
@@ -295,11 +244,7 @@ func qry1() {
 	if len(resp.Recs) != len(matchingIds) {
 		log.Fatalln("qry1 wrong number of resp recs-", len(resp.Recs))
 	}
-	// unmarshal resp.Recs to []Location
-	results := make([]Location, len(resp.Recs))
-	for i, jsonRec := range resp.Recs {
-		json.Unmarshal(jsonRec, &results[i])
-	}
+	results := data.JsonToSlice(resp.Recs, data.Location{}) // convert resp recs to map of Location recs
 
 	// confirm results match desired results
 	for i, id := range matchingIds {
@@ -336,10 +281,8 @@ func qry2() {
 	if len(resp.Recs) != len(matchingIds) {
 		log.Fatalln("qry2 wrong number of resp recs-", len(resp.Recs))
 	}
-	results := make([]Location, len(resp.Recs))
-	for i, jsonRec := range resp.Recs {
-		json.Unmarshal(jsonRec, &results[i])
-	}
+	results := data.JsonToSlice(resp.Recs, data.Location{}) // convert resp recs to slice of Location recs
+
 	// confirm results match desired results
 	for i, id := range matchingIds {
 		original := locationData[id]
@@ -373,10 +316,8 @@ func qry3() {
 	if len(resp.Recs) != len(matchingIds) {
 		log.Fatalln("qry3 wrong number of resp recs-", len(resp.Recs))
 	}
-	results := make([]Location, len(resp.Recs))
-	for i, jsonRec := range resp.Recs {
-		json.Unmarshal(jsonRec, &results[i])
-	}
+	results := data.JsonToSlice(resp.Recs, data.Location{}) // convert resp recs to slice of Location recs
+
 	// confirm results match desired results
 	for i, id := range matchingIds {
 		original := locationData[id]
@@ -426,10 +367,8 @@ func getIndex() {
 	resp, err := bo.Run(httpClient, bobb.OpGetIndex, req)
 	checkResp(resp, err, "getIndex")
 
-	results := make([]Location, len(resp.Recs))
-	for i, jsonRec := range resp.Recs {
-		json.Unmarshal(jsonRec, &results[i])
-	}
+	results := data.JsonToSlice(resp.Recs, data.Location{}) // convert resp recs to slice of Location recs
+
 	// confirm results match desired results
 	matchingIds := []string{"101", "102", "104", "103"} // returned in zip code order
 	for i, id := range matchingIds {
@@ -461,10 +400,7 @@ func qryIndex() {
 	resp, err := bo.Run(httpClient, bobb.OpQryIndex, req)
 	checkResp(resp, err, "qryIndex")
 
-	results := make([]Location, len(resp.Recs))
-	for i, rec := range resp.Recs {
-		json.Unmarshal(rec, &results[i])
-	}
+	results := data.JsonToSlice(resp.Recs, data.Location{}) // convert resp recs to slice of Location recs
 
 	// confirm results match desired results
 	matchingIds := []string{"999", "103"}
@@ -489,7 +425,7 @@ func update(id string) {
 	locationData[id] = original
 
 	// get current rec from db using GetOne func in client pkg
-	var currRec Location
+	var currRec data.Location
 	if err := bo.GetOne(httpClient, locationBkt, id, &currRec); err != nil {
 		log.Fatalln(err)
 	}
@@ -505,7 +441,7 @@ func update(id string) {
 		log.Fatalln(err)
 	}
 	// get record to make sure it updated correctly
-	var newRec Location
+	var newRec data.Location
 	if err := bo.GetOne(httpClient, locationBkt, id, &newRec); err != nil {
 		log.Fatalln(err)
 	}
@@ -527,7 +463,7 @@ func delete(ids ...string) {
 	checkResp(resp, err, "delete")
 
 	// verify rec is deleted
-	var rec Location
+	var rec data.Location
 	if err = bo.GetOne(httpClient, locationBkt, ids[0], &rec); err.Error() != "not found" {
 		log.Fatalln("delete failed-", err)
 	}
@@ -594,24 +530,12 @@ func putBkts() {
 	bo.DeleteBkt(httpClient, "order_item")
 	bo.CreateBkt(httpClient, "order_item")
 
-	type order struct {
-		Id         string `json:"id"` // customerid_bktseqno
-		OrderDate  string `json:"orderDate"`
-		CustomerId string `json:"customerId"`
-	}
-	type orderItem struct {
-		Id        string `json:"id"` // orderid_itemno
-		OrderId   string `json:"orderId"`
-		ItemNo    int    `json:"itemNo"`
-		ProductId string `json:"productId"`
-		Qty       int    `json:"qty"`
-	}
-	var order1 = order{
+	var order1 = data.Order{
 		Id:         "00377_00005244",
 		OrderDate:  "2024-05-23",
 		CustomerId: "00377",
 	}
-	var items = []orderItem{
+	var items = []data.OrderItem{
 		{"00377_00005244_001", "00377_00005244", 1, "A4576", 2},
 		{"00377_00005244_002", "00377_00005244", 2, "A1721", 1},
 		{"00377_00005244_003", "00377_00005244", 3, "C1600", 5},
@@ -634,7 +558,7 @@ func putBkts() {
 	checkResp(resp, err, "putBkts")
 
 	// verify order in db matches order sent
-	var savedOrder order // order saved to db
+	var savedOrder data.Order // order saved to db
 	bo.GetOne(httpClient, "order", order1.Id, &savedOrder)
 	if order1 != savedOrder {
 		log.Fatalln("putBkts db order does not match sent order")
@@ -644,13 +568,21 @@ func putBkts() {
 	req2 := bobb.GetAllRequest{BktName: "order_item"}
 	resp2, _ := bo.Run(httpClient, bobb.OpGetAll, req2)
 
-	var savedItem orderItem
-	for i, jsonRec := range resp2.Recs {
-		json.Unmarshal(jsonRec, &savedItem)
-		if items[i] != savedItem {
+	results2 := data.JsonToSlice(resp2.Recs, data.OrderItem{})
+	for i, jsonRec := range results2 {
+		if items[i] != jsonRec {
 			log.Fatalln("putBkts db item does not match sent item")
 		}
 	}
+
+	//var savedItem orderItem
+	//for i, jsonRec := range resp2.Recs {
+	//		json.Unmarshal(jsonRec, &savedItem)
+	//	if items[i] != savedItem {
+	//		log.Fatalln("putBkts db item does not match sent item")
+	//	}
+	//}
+
 	log.Println("-- putBkts done -----")
 }
 
@@ -662,28 +594,17 @@ func loadLocationData(fileName string) {
 	if err != nil {
 		log.Fatalln("error opening json data file", err)
 	}
-	inputRecs := make([]Location, 0, 100)
+	inputRecs := make([]data.Location, 0, 100)
 	if err := json.Unmarshal(jsonData, &inputRecs); err != nil {
 		log.Fatalln("json.Unmarshal error on jsonData", err)
 	}
-	locationData = make(map[string]Location)
+	locationData = make(map[string]data.Location)
 	for _, rec := range inputRecs {
 		locationData[rec.Id] = rec
 	}
 }
 
-// unmarshal result recs into a map, id fld is key
-func saveResultsToMap(jsonRecs [][]byte) map[string]Location {
-	results := make(map[string]Location)
-	for _, jsonRec := range jsonRecs {
-		locRec := Location{}
-		json.Unmarshal(jsonRec, &locRec)
-		results[locRec.Id] = locRec
-	}
-	return results
-}
-
-func compare(original, result Location, funcName string) {
+func compare(original, result data.Location, funcName string) {
 	originalStrVals := original.Id + original.Address + original.City + original.St + original.Zip + original.LastActionDt
 	resultStrVals := result.Id + result.Address + result.City + result.St + result.Zip + result.LastActionDt
 	if originalStrVals != resultStrVals {
