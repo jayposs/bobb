@@ -1,6 +1,4 @@
-// bigqry pgm performs random queries with and without indexes
-// test bucket contained ~250,000 records
-// see observed processing times below
+// used for testing random queries with larger size db
 
 package main
 
@@ -84,11 +82,12 @@ func qry1() {
 func qry2() {
 	log.Println("-- qry2 starting -----")
 	criteria := []bobb.FindCondition{
-		{Fld: "st", Op: bobb.FindAfter, ValStr: "OK"},
+		{Fld: "st", Op: bobb.FindAfter, ValStr: "ok"},
 		{Fld: "address", Op: bobb.FindContains, ValStr: "ave"},
 		{Fld: "locationType", Op: bobb.FindEquals, ValInt: 3},
 	}
 	sortKeys := []bobb.SortKey{
+		{Fld: "locationType", Dir: bobb.SortAscInt},
 		{Fld: "st", Dir: bobb.SortDescStr},
 		{Fld: "city", Dir: bobb.SortAscStr},
 	}
@@ -175,7 +174,7 @@ func qryIndex() {
 	req := bobb.QryIndexRequest{
 		BktName:        locationBkt,
 		IndexBkt:       "location_zipbig_index",
-		StartKey:       "10000",
+		StartKey:       "40000",
 		EndKey:         "69999",
 		FindConditions: criteria,
 		SortKeys:       sortKeys,

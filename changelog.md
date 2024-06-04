@@ -29,3 +29,10 @@ Separate db types and funcs from demo.go main pgm.
 
 * demodata/datatypes.go - db record types
 * demodata/datafuncs.go - convert db recs from/to json recs using generic funcs
+
+**June 4, 2024 - Rewrite Qry Sort**  
+
+Sorting for query requests is now much faster.  
+Previous version did not use fastjson parsing in an efficient way.  
+
+* view_handlers.go - qrySort func rewrite, with minor changes to Qry, QryIndex funcs.

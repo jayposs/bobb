@@ -6,14 +6,19 @@ package bobb
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"slices"
+	"strings"
 
+	"github.com/valyala/fastjson"
 	bolt "go.etcd.io/bbolt"
 )
 
 var DefaultQryRespSize = 400 // response slice initial allocation for this size
+
+var parserPool = new(fastjson.ParserPool)
 
 // openBkt returns pointer to bucket. Errors are logged and response is loaded with error info.
 // Both View and Update handler funcs use openBkt.
@@ -255,7 +260,7 @@ func Qry(tx *bolt.Tx, req *QryRequest) *Response {
 		return resp
 	}
 	resultRecs := make(map[string][]byte, DefaultQryRespSize) // recs meeting criteria, map key is db Key, map value is db Value
-	resultKeys := make([]string, 0, DefaultQryRespSize)       // loaded with keys of records meeting selection criteria
+	resultKeys := make([]string, 0, DefaultQryRespSize)
 
 	var k, v []byte
 	csr := bkt.Cursor()
@@ -285,18 +290,23 @@ func Qry(tx *bolt.Tx, req *QryRequest) *Response {
 	}
 	Trace("__ qry find done __")
 
-	if len(req.SortKeys) > 0 {
-		resultKeys = qrySort(req.SortKeys, resultKeys, resultRecs)
-		if resultKeys == nil {
+	resp.Recs = make([][]byte, len(resultKeys))
+
+	if len(req.SortKeys) == 0 { // no sort parms in request, return in natural key order
+		for i, key := range resultKeys {
+			resp.Recs[i] = resultRecs[key]
+		}
+	} else {
+		sortedKeys := qrySort(req.SortKeys, resultKeys, resultRecs)
+		if sortedKeys == nil {
 			resp.Status = StatusFail
-			resp.Msg = "qry sort failed"
+			resp.Msg = "qry sort failed, see server log"
+			resp.Recs = nil
 			return resp
 		}
-	}
-	// load response.Recs slice in order based on sorted order of keys
-	resp.Recs = make([][]byte, len(resultKeys))
-	for i, key := range resultKeys {
-		resp.Recs[i] = resultRecs[key]
+		for i, key := range sortedKeys {
+			resp.Recs[i] = resultRecs[key]
+		}
 	}
 	resp.Status = StatusOk
 	return resp
@@ -332,7 +342,7 @@ func QryIndex(tx *bolt.Tx, req *QryIndexRequest) *Response {
 		if dataVal == nil {
 			log.Println("using index value, key not found in data bkt", req.BktName, req.IndexBkt, indexKey, dataKey)
 			resp.Status = StatusFail
-			resp.Msg = "index value not found in data bkt"
+			resp.Msg = "index value not found in data bkt, see server log"
 			return resp
 		}
 		keep := true
@@ -349,66 +359,106 @@ func QryIndex(tx *bolt.Tx, req *QryIndexRequest) *Response {
 		}
 		indexKey, dataKey = csr.Next()
 	}
-	if len(req.SortKeys) > 0 {
-		resultKeys = qrySort(req.SortKeys, resultKeys, resultRecs)
-		if resultKeys == nil {
+	resp.Recs = make([][]byte, len(resultKeys))
+
+	if len(req.SortKeys) == 0 { // no sort parms in request, return in natural key order
+		for i, key := range resultKeys {
+			resp.Recs[i] = resultRecs[key]
+		}
+	} else {
+		sortedKeys := qrySort(req.SortKeys, resultKeys, resultRecs)
+		if sortedKeys == nil {
 			resp.Status = StatusFail
-			resp.Msg = "qry sort failed"
+			resp.Msg = "qry sort failed, see server log"
+			resp.Recs = nil
 			return resp
 		}
-	}
-	// load response.Recs slice in order based on sorted order of keys
-	resp.Recs = make([][]byte, len(resultKeys))
-	for i, key := range resultKeys {
-		resp.Recs[i] = resultRecs[key]
+		for i, key := range sortedKeys {
+			resp.Recs[i] = resultRecs[key]
+		}
 	}
 	resp.Status = StatusOk
 	return resp
 }
 
 // qrySort is used by Qry requests.
-// It returns a copy of the resultKeys (record keys meeting selection criteria) in sorted order.
-func qrySort(sortKeys []SortKey, resultKeys []string, resultData map[string][]byte) []string {
-	if !sortKeysOk(sortKeys) {
-		return nil
-	}
+// Returns qry result record keys in sorted order.
+func qrySort(sortKeys []SortKey, resultKeys []string, resultRecs map[string][]byte) []string {
 	Trace("~ qry sort start ~")
-	keys := make([]string, len(resultKeys))
-	copy(keys, resultKeys)
-	var n int
-	slices.SortFunc(keys, func(a, b string) int { // slices pkg added in Go 1.21
-		reca := resultData[a]
-		recb := resultData[b]
-		for _, sortKey := range sortKeys {
-			if slices.Contains(StrSortCodes, sortKey.Dir) { // compare str values
-				vala := recGetStr(reca, sortKey.Fld, StrToLower)
-				valb := recGetStr(recb, sortKey.Fld, StrToLower)
-				n = strCompare(vala, valb)
-			} else if slices.Contains(IntSortCodes, sortKey.Dir) { // compare int values
-				vala := recGetInt(reca, sortKey.Fld)
-				valb := recGetInt(recb, sortKey.Fld)
-				n = intCompare(vala, valb)
+
+	sortTypes := make([]string, len(sortKeys)) // store field type for each sortKey (string, int)
+	sortDir := make([]string, len(sortKeys))   // store sort direction for each sortKey (asc, desc)
+	for i, sortKey := range sortKeys {
+		switch {
+		case slices.Contains(StrSortCodes, sortKey.Dir):
+			sortTypes[i] = "string"
+		case slices.Contains(IntSortCodes, sortKey.Dir):
+			sortTypes[i] = "int"
+		default:
+			log.Println("ERROR - Invalid SortKey Dir Attribute", sortKey)
+			return nil
+		}
+		if slices.Contains(DescSortCodes, sortKey.Dir) {
+			sortDir[i] = "desc"
+		} else {
+			sortDir[i] = "asc"
+		}
+	}
+	parser := parserPool.Get()
+
+	// extract sort values from result records
+	resultSortVals := make(map[string][]string) // rec key: []sort values (converted to string)
+	for recId, recVal := range resultRecs {
+		parsedRec, err := parser.ParseBytes(recVal)
+		if err != nil {
+			log.Println("ERROR - qrySort failed, cannot parse result record-", err)
+			log.Println(recId, string(recVal))
+			return nil
+		}
+		sortVals := make([]string, 0, len(sortKeys))
+		for i, sortKey := range sortKeys {
+			sortType := sortTypes[i]
+			sortVal := ""
+			switch sortType {
+			case "string":
+				strBytes := parsedRec.GetStringBytes(sortKey.Fld)
+				if strBytes == nil {
+					log.Println("ERROR - qrySort sort fld not found in record-", sortKey.Fld)
+					return nil
+				} else {
+					sortVal = strings.ToLower(string(strBytes))
+				}
+			case "int":
+				intVal := parsedRec.GetInt(sortKey.Fld)
+				sortVal = fmt.Sprintf("%011d", intVal) // converts 3456 to 00000003456
 			}
+			sortVals = append(sortVals, sortVal)
+		}
+		resultSortVals[recId] = sortVals
+	}
+	parserPool.Put(parser)
+
+	//for k, v := range resultSortVals {
+	//	log.Println(k, v)
+	//}
+
+	slices.SortFunc(resultKeys, func(a, b string) int { // slices pkg added in Go 1.21
+		aRecVals := resultSortVals[a]
+		bRecVals := resultSortVals[b]
+		for i := 0; i < len(sortKeys); i++ {
+			aVal := aRecVals[i]
+			bVal := bRecVals[i]
+			n := strCompare(aVal, bVal)
 			if n == 0 { // sort key values are equal
 				continue
 			}
-			if slices.Contains(DescSortCodes, sortKey.Dir) { // if sort direction is descending, negate return value
-				n = n * -1
+			if sortDir[i] == "desc" {
+				n = n * -1 // if sort direction is descending, negate return value
 			}
 			return n
 		}
 		return 0 // all sort key values are equal
 	})
 	Trace("~ qry sort done ~")
-	return keys
-}
-func sortKeysOk(sortKeys []SortKey) bool {
-	for _, sortKey := range sortKeys {
-		if slices.Contains(StrSortCodes, sortKey.Dir) || slices.Contains(IntSortCodes, sortKey.Dir) {
-			continue
-		}
-		log.Println("ERROR - Invalid SortKey Dir Attribute", sortKey)
-		return false
-	}
-	return true
+	return resultKeys
 }
