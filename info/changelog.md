@@ -36,3 +36,12 @@ Sorting for query requests is now much faster.
 Previous version did not use fastjson parsing in an efficient way.  
 
 * view_handlers.go - qrySort func rewrite, with minor changes to Qry, QryIndex funcs.
+
+**June 12, 2024 - Modify PutIndex**
+  
+When replacing existing index record due to data change that affects index key,  
+old index record can be deleted on same request.  
+
+* types.go - add OldKey field to IndexKeyVal type
+* updt_handlers.go - add logic to PutIndex func to delete rec where key = OldKey
+
