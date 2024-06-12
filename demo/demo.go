@@ -50,6 +50,7 @@ func main() {
 	qry2() // find str greaterthan, str contains, int equals, sort st desc, city asc
 	qry3() // uses Not condition
 	putIndex()
+	updateIndex()
 	getIndex()
 	qryIndex()
 	update("999")
@@ -353,6 +354,46 @@ func putIndex() {
 	log.Println("-- putIndex done -----")
 }
 
+// -- updateIndex -----------------------------------------------
+// Use the OldKey in IndexKeyVal, so that existing index rec is deleted.
+func updateIndex() {
+	log.Println("-- updateIndex starting -----")
+
+	oldKey := "54633|104"
+	newKey := "54633|104-b"
+	newIndex := bobb.IndexKeyVal{
+		Key:    newKey,
+		Val:    "104",
+		OldKey: oldKey,
+	}
+	req := bobb.PutIndexRequest{
+		BktName: locationZipIndex,
+		Indexes: []bobb.IndexKeyVal{newIndex},
+	}
+	resp, err := bo.Run(httpClient, bobb.OpPutIndex, req)
+	checkResp(resp, err, "updateIndex")
+
+	// verify old index removed and new one added
+	req2 := bobb.GetAllKeysRequest{
+		BktName: locationZipIndex,
+	}
+	resp, _ = bo.Run(httpClient, bobb.OpGetAllKeys, req2)
+
+	var newKeyFound bool
+	for _, r := range resp.Recs {
+		if string(r) == oldKey {
+			log.Fatalln("updateIndex failed, old key not removed")
+		}
+		if string(r) == newKey {
+			newKeyFound = true
+		}
+	}
+	if !newKeyFound {
+		log.Fatalln("updateIndex failed, new key not found")
+	}
+	log.Println("-- updateIndex done -----")
+}
+
 // -- getIndex --
 // Uses start/end keys in index bkt to retrieve records from data bkt.
 func getIndex() {
@@ -587,7 +628,6 @@ func putBkts() {
 }
 
 // --------------------------------------------------------------
-
 // load test data from json file into map locationData
 func loadLocationData(fileName string) {
 	jsonData, err := os.ReadFile(fileName)

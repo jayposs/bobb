@@ -102,9 +102,11 @@ type PutOneRequest struct {
 // IndexKeyVal type is used by PutIndexRequest.
 // Key is typically created from value(s) in data record (must be made unique).
 // Val is key of record in data bkt.
+// If OldKey not empty, it will be deleted. No problem if it does not exist.
 type IndexKeyVal struct {
-	Key string `json:"key"`
-	Val string `json:"val"`
+	Key    string `json:"key"`
+	Val    string `json:"val"`
+	OldKey string `json:"oldKey"` // used when index rec already exists for data key
 }
 
 // PutIndexRequest is used to add or replace records in an index bkt.

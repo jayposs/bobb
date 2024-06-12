@@ -116,7 +116,7 @@ func PutOne(tx *bolt.Tx, req *PutOneRequest) (*Response, error) {
 // Key is field value(s) from primary bkt (made unique).
 // Val is key of record in primary bkt.
 // WARNING - if data rec already has index rec, changing index key will cause multiple records for same data rec.
-// To change index key, previous index record must be deleted.
+// Use OldKey to delete existing index rec.
 func PutIndex(tx *bolt.Tx, req *PutIndexRequest) (*Response, error) {
 
 	resp := new(Response)
@@ -125,6 +125,9 @@ func PutIndex(tx *bolt.Tx, req *PutIndexRequest) (*Response, error) {
 		return resp, nil
 	}
 	for _, index := range req.Indexes { // []IndexKeyVal
+		if index.OldKey != "" {
+			bkt.Delete([]byte(index.OldKey))
+		}
 		err := bkt.Put([]byte(index.Key), []byte(index.Val))
 		if err != nil {
 			log.Println("db error - put index failed", err)

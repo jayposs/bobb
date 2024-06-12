@@ -118,7 +118,7 @@ The GetIndex, and QryIndex requests use index buckets to speed processing. The P
 The **Index Loader** (indexloader/indexloader.go) can be used to create and bulk load an index bucket. It reads the complete data bkt into memory, so for very large bkts, a custom index loader may need to be used.
 
 **BEWARE**  
-If the index key value changes (due to data record change) and a new record is Put into the index, the original index record must be deleted, else there will be multiple index records pointing to the same data record. Requests using this index may produce invalid results.  
+If the index key value changes (due to data record change) and a new record is Put into the index, the original index record must be deleted, else there will be multiple index records pointing to the same data record. Requests using this index may produce invalid results.  The PutIndex request has been modified (Jun 12, 2024) to facilitate removal of original index record when new index record is added. A new field, OldKey, was added to type IndexKeyVal. See func updateIndex in demo.go for example.
 
 Records are read sequentially from the index bucket beginning at the start key and directly from the data bucket using the primary data record keys. 
 
