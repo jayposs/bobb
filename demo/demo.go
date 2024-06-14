@@ -59,6 +59,7 @@ func main() {
 	export()
 	copyDB()
 	putBkts() // new feature added May 1, 2024
+	getValues()
 
 	log.Println("*** Demo Pgm Finished Successfully ***")
 }
@@ -625,6 +626,54 @@ func putBkts() {
 	//}
 
 	log.Println("-- putBkts done -----")
+}
+
+// --------------------------------------------------------------
+// experimental requests
+// --------------------------------------------------------------
+
+// -- getValues ------------------------------------
+// Retrieves specific field values from records with requested keys.
+
+func getValues() {
+	log.Println("-- getValues starting -----")
+
+	req := bobb.GetValuesRequest{
+		BktName: locationBkt,
+		Keys:    []string{"102", "103", "104"},
+		Fields:  []string{"address", "city", "locationType|int"},
+	}
+	resp, err := bo.Run(httpClient, bobb.OpGetValues, req)
+	checkResp(resp, err, "getValues")
+
+	results := make([]bobb.RecValues, len(resp.Recs))
+
+	// load results from resp
+	for i, jsonRec := range resp.Recs {
+		json.Unmarshal(jsonRec, &results[i])
+	}
+
+	expectedResults := []bobb.RecValues{
+		{Key: "102", FldVals: map[string]string{"address": "102 Nomad Lane", "city": "Hangover", "locationType": "2"}},
+		{Key: "103", FldVals: map[string]string{"address": "103 Big Way Ave", "city": "Tuggville", "locationType": "2"}},
+		{Key: "104", FldVals: map[string]string{"address": "900 Hammer Hill Ave", "city": "Anville", "locationType": "3"}},
+	}
+	// confirm results match expected results
+	for i, expected := range expectedResults {
+		r := results[i]
+		if r.Key != expected.Key {
+			log.Println("expected key - result key", expected.Key, r.Key)
+			log.Fatalln("getValues failed")
+		}
+		for k, v := range expected.FldVals {
+			if v != r.FldVals[k] {
+				log.Println("expected - result ", v, r.FldVals[k])
+				log.Fatalln("getValues failed, values don't match")
+			}
+		}
+	}
+
+	log.Println("-- getValues done -----")
 }
 
 // --------------------------------------------------------------

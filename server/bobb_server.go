@@ -60,6 +60,11 @@ func main() {
 		var request bobb.GetRequest
 		dbHandler(bobb.OpGet, &request, w, r)
 	})
+	// getvalues is experimental request, see exp_handlers.go
+	http.HandleFunc("/getvalues", func(w http.ResponseWriter, r *http.Request) {
+		var request bobb.GetValuesRequest
+		dbHandler(bobb.OpGetValues, &request, w, r)
+	})
 	http.HandleFunc("/getone", func(w http.ResponseWriter, r *http.Request) {
 		var request bobb.GetOneRequest
 		dbHandler(bobb.OpGetOne, &request, w, r)
@@ -175,6 +180,12 @@ func dbHandler(op string, request any, w http.ResponseWriter, r *http.Request) {
 	case bobb.OpGet:
 		txErr = db.View(func(tx *bolt.Tx) error {
 			response = bobb.Get(tx, request.(*bobb.GetRequest))
+			jsonData, jsonErr = json.Marshal(response)
+			return nil
+		})
+	case bobb.OpGetValues: // GetValues is experimental request, see exp_handlers.go
+		txErr = db.View(func(tx *bolt.Tx) error {
+			response = bobb.GetValues(tx, request.(*bobb.GetValuesRequest))
 			jsonData, jsonErr = json.Marshal(response)
 			return nil
 		})

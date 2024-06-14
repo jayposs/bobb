@@ -1,0 +1,86 @@
+TECHNICAL NOTES ON BOBB
+
+There are features available in bbolt that are not used in Bobb.
+Review the github doc at https://github.com/etcd-io/bbolt/blob/main/README.md for info.
+
+Records are accessed either directly by key or sequentially with a cursor.
+
+A cursor provides the means to quickly establish a starting point and then read sequentially in key order.
+
+Direct and cursor based sequential reads are fast. 
+
+Records are json strings stored as slice of bytes ( []byte ). How does Bobb perform queries ?
+Using the fastjson package, individual values are extracted from the record by field name. The value
+type must also be specified. Fastjson allows values inside sub structs and slices to be accessed, 
+but Bobb does not utilize this feature. Only the top level fields can be used for searching and sorting.
+
+Put operations with a large number of records should be split into batches. 
+See the bulkloader program for an example. 
+
+Query Find Conditions and Sort Keys 
+-----------------------------------
+The constant code values are located in codes.go.
+They specify both the operation and value type.
+For example "FindMatches" is for strings and "FindEquals" is for ints.
+
+FindConditions are "anded" together (no "or" option).
+The "Not" option provides additional flexibility.
+
+type FindCondition struct {
+	Fld    string // field containing compare value
+	Op     string // defines match criteria
+	ValStr string // for string ops
+	ValInt int    // for int Ops
+	Not    bool   // only include records that do not meet condition
+}
+
+// SortKey Dir Codes
+const (
+	SortAscStr  = "ascstr"
+	SortDescStr = "descstr"
+	SortAscInt  = "ascint"
+	SortDescInt = "descint"
+)
+// FindCondition Op Codes
+const (
+	FindContains   = "contains"   // str
+	FindMatches    = "matches"    // str
+	FindStartsWith = "startswith" // str
+	FindBefore     = "before"     // str
+	FindAfter      = "after"      // str
+
+	FindLessThan    = "lessthan"    // int
+	FindGreaterThan = "greaterthan" // int
+	FindEquals      = "equals"      // int
+)
+
+Secondary Indexes
+-----------------
+This feature is simple in concept but may be complex in implementation depending on the requirements.
+The only index provided natively by bbolt is the key associated with each data record.
+Bobb adds features for the creation and use of secondary indexes. For large datasets that need to be accessed
+in some manner other than in the primary key order, it can be a critical feature. Full bucket scans may still
+be the best choice depending on dataset size and frequency of use case. Remember bbolt is very fast reading records. 
+
+The GetIndex and QryIndex requests use an index bucket to speed processing. The Start and End keys specify a range
+of records in the index to be used in the request. Without the index, a full bucket scan would be required. The index 
+also determines the order of records returned unless sorting options are specified.
+
+If the dataset is fairly static, for example once daily updates, a batch process to completely recreate the index
+may be fine. The included indexloader program provides this capability. Periodically rebuilding any index may be a 
+good idea.
+
+If the index must be kept up to date at all times, then when an associated data record is added, a corresponding
+index record must be added. The developer is responsible for implementing this logic. The PutIndex request 
+simplifies adding index records. 
+
+If a data value changes that is a portion of the index key, then the old index record must deleted in addition to
+adding a new index record. The PutIndex request allows for this requirement. See the IndexKeyVal type that is used
+by the PutIndex function.
+
+By writing your own index logic, you completely understand what's going on and have freedom to be creative with
+how the indexing works.
+
+I consider indexes almost a required feature. Most complex databases (MongoDB, MySql, Postgres, etc.) handle this function
+automatically, so indexing requirements are an important consideration when choosing a database. 
+

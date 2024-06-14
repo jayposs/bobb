@@ -44,4 +44,13 @@ old index record can be deleted on same request.
 
 * types.go - add OldKey field to IndexKeyVal type
 * updt_handlers.go - add logic to PutIndex func to delete rec where key = OldKey
+* demo/demo.go - add updateIndex func
 
+**June 14, 2024 - Add Experimental Request, GetValues**
+
+Provides ability to request values only for specific fields rather than entire records.  
+This code is more of an example that may need to be modified for specific needs.  
+
+* exp_requests.go - GetValuesRequest and RecValues types, GetValues func
+* server/bobb_server.go - add routing code
+* demo/demo.go - add getValues func
