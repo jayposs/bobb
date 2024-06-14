@@ -1,0 +1,53 @@
+General Go Notes on Random Topics That May Be Confusing
+
+Slices
+----------
+Data is stored in a backing fixed size array. Its size is based on the capacity value used in a "make" command (has defaults if not specified).
+When a slice's array capacity is exceeded, the Go runtime will automatically allocate a new, larger backing array
+and copy the existing elements over to the new array.
+
+A slice header contains a pointer to the data array, length, and capacity.
+
+When a slice is included as a func call parameter, a copy of the header is passed to the called func.
+If the called func updates the slice, but does not cause the data array to be reallocated (because it's full),
+then the calling code will see the updates made to the slice.
+If the data array is reallocated, then the calling code will not see the updates. Its header still points to the original array.
+
+Other aspects of slices are pretty easy to understand with plenty of explanations elsewhere. 
+
+Be careful when making a slice with non zero length attribute and then adding entries with append.
+The original entries (from make) will contain the types zero values and each append will increase the length. 
+
+
+Money
+----------
+Money is a confusing topic when it comes to Go. There is no clean built in way to deal with it (that I can find).
+There are numerous approaches, but I will explain the way I handle money in Go. This technique was used in production business
+applications for over 5 years with no problems that I'm aware of.
+
+Everyone (or at least some) scream "don't use floating point numbers with money". I get there are problems, but in my 
+opinion these problems are easier to deal with than trying other approaches, such as working with integers (money as pennies).
+
+I stored money as strings created from float64 values formatted with 2 decimal places in the database.
+
+For computations, values were converted to float64 and each computation result was run through the Money func below.
+It basically cleans up the low order bits that get wierd in floating point calculations.
+For example: 12.45 + 12.55 = 24.999999901 in floating point, is returned as 25.00.
+
+// rounds to 2 decimal places and cleans up the least significat bits
+// typically called after a mathematical operation that produces an inexact value due to nature of floating point math
+// ex. 1.49999001 = 1.5000000
+// ex. 1.50001115 = 1.5000000
+func Money(amt float64) float64 {
+	if amt == 0 {
+		return 0
+	}
+	var intAmt int64
+	var rounder float64 = .005
+	if amt < 0 {
+		intAmt = int64((amt - rounder) * 100)
+	} else {
+		intAmt = int64((amt + rounder) * 100)
+	}
+	return float64(intAmt) / 100
+}
