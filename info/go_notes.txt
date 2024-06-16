@@ -18,36 +18,3 @@ Other aspects of slices are pretty easy to understand with plenty of explanation
 Be careful when making a slice with non zero length attribute and then adding entries with append.
 The original entries (from make) will contain the types zero values and each append will increase the length. 
 
-
-Money
-----------
-Money is a confusing topic when it comes to Go. There is no clean built in way to deal with it (that I can find).
-There are numerous approaches, but I will explain the way I handle money in Go. This technique was used in production business
-applications for over 5 years with no problems that I'm aware of.
-
-Everyone (or at least some) scream "don't use floating point numbers with money". I get there are problems, but in my 
-opinion these problems are easier to deal with than trying other approaches, such as working with integers (money as pennies).
-
-I stored money as strings created from float64 values formatted with 2 decimal places in the database.
-
-For computations, values were converted to float64 and each computation result was run through the Money func below.
-It basically cleans up the low order bits that get wierd in floating point calculations.
-For example: 12.45 + 12.55 = 24.999999901 in floating point, is returned as 25.00.
-
-// rounds to 2 decimal places and cleans up the least significat bits
-// typically called after a mathematical operation that produces an inexact value due to nature of floating point math
-// ex. 1.49999001 = 1.5000000
-// ex. 1.50001115 = 1.5000000
-func Money(amt float64) float64 {
-	if amt == 0 {
-		return 0
-	}
-	var intAmt int64
-	var rounder float64 = .005
-	if amt < 0 {
-		intAmt = int64((amt - rounder) * 100)
-	} else {
-		intAmt = int64((amt + rounder) * 100)
-	}
-	return float64(intAmt) / 100
-}
