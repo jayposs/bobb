@@ -18,3 +18,61 @@ Other aspects of slices are pretty easy to understand with plenty of explanation
 Be careful when making a slice with non zero length attribute and then adding entries with append.
 The original entries (from make) will contain the types zero values and each append will increase the length. 
 
+
+Money (Decimal Values)
+----------------------
+There doesn't seem to be a standard way to handle decimal values, like money, in Go.
+One solution is the shopspring/decimal pkg. It has many features and is probably a safe way to go.
+https://pkg.go.dev/github.com/shopspring/decimal#section-readme
+
+If your needs are more modest, you might look at the following solution. 
+
+1. Store and display decimal values as strings converted from float64 with fixed decimal place.
+2. Convert from string to float64 for computations.
+3. After each computation "fix" the result by calling a fixer func (see Money2, Money4 below).
+
+func Money2(amt float64) float64 { // return 2 decimal places
+	if amt == 0 {
+		return 0
+	}
+	var intAmt int64
+	var rounder float64 = .005
+	if amt < 0 {
+		intAmt = int64((amt - rounder) * 100)
+	} else {
+		intAmt = int64((amt + rounder) * 100)
+	}
+	return float64(intAmt) / 100
+}
+
+func Money4(amt float64) float64 { // return 4 decimal places
+	if amt == 0 {
+		return 0
+	}
+	var intAmt int64
+	var rounder float64 = .00005
+	if amt < 0 {
+		intAmt = int64((amt - rounder) * 10000)
+	} else {
+		intAmt = int64((amt + rounder) * 10000)
+	}
+	return float64(intAmt) / 10000
+}
+
+-- Sample Money Test ----------
+    a, _ := strconv.ParseFloat("19438.10", 64)  // convert string value stored in db to float64
+	b, _ := strconv.ParseFloat(".0825", 64)
+	x := a * b
+	m4 := Money4(x)
+    fmt.Printf("%.6f\n", x)  // 1603.643250 - original
+	fmt.Printf("%.6f\n", m4) // 1603.643300 - m4 amt
+    
+    var m4Tot float64
+	for i := 0; i < 525000; i++ {   // 525,000 iterations
+		m4Tot = Money4(m4Tot + m4)
+	}
+	saveValue := strconv.FormatFloat(m4Tot, 'f', 4, 64)  // save as string with 4 decimal places
+	
+	// final total = 841,912,732.5000 (1603.6433 x 525,000 exactly)
+
+    // without using Money4, final total was 841,912,732.5098 (about 1 cent too high)
