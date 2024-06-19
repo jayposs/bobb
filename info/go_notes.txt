@@ -59,20 +59,23 @@ func Money4(amt float64) float64 { // return 4 decimal places
 	return float64(intAmt) / 10000
 }
 
--- Sample Money Test ----------
-    a, _ := strconv.ParseFloat("19438.10", 64)  // convert string value stored in db to float64
-	b, _ := strconv.ParseFloat(".0825", 64)
-	x := a * b
-	m4 := Money4(x)
-    fmt.Printf("%.6f\n", x)  // 1603.643250 - original
-	fmt.Printf("%.6f\n", m4) // 1603.643300 - m4 amt
-    
-    var m4Tot float64
-	for i := 0; i < 525000; i++ {   // 525,000 iterations
-		m4Tot = Money4(m4Tot + m4)
-	}
-	saveValue := strconv.FormatFloat(m4Tot, 'f', 4, 64)  // save as string with 4 decimal places
-	
-	// final total = 841,912,732.5000 (1603.6433 x 525,000 exactly)
+-- Sample Money Test ---------------------------------------------------------------
 
-    // without using Money4, final total was 841,912,732.5098 (about 1 cent too high)
+a, _ := strconv.ParseFloat("19438.10", 64)  // convert string value stored in db to float64
+b, _ := strconv.ParseFloat(".0825", 64)
+x := a * b
+m4 := Money4(x)
+fmt.Printf("%.6f\n", x)  // 1603.643250 - original
+fmt.Printf("%.6f\n", m4) // 1603.643300 - m4 amt
+    
+var m4Tot float64
+for i := 0; i < 525000; i++ {   // 525,000 iterations
+	m4Tot = Money4(m4Tot + m4)
+}
+saveValue := strconv.FormatFloat(m4Tot, 'f', 4, 64)  // save as string with 4 decimal places
+// or
+saveValue := fmt.Sprintf("%016.4f", m4Tot)  // with leading zeros, can use value in qry find & sort
+	
+// final total = 841,912,732.5000 (1603.6433 x 525,000 exactly)
+
+// without using Money4, final total was 841,912,732.5098 (about 1 cent too high)
