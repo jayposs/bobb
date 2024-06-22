@@ -1,6 +1,12 @@
-General Go Notes on Random Topics That May Be Confusing
+General Go Notes on Random Topics
 
-Slices
+Contents
+---------
+1. Slices
+2. Money (decimal numbers)
+3. Global Variables (in multi goroutine programs)
+
+SLICES
 ----------
 Data is stored in a backing fixed size array. Its size is based on the capacity value used in a "make" command (has defaults if not specified).
 When a slice's array capacity is exceeded, the Go runtime will automatically allocate a new, larger backing array
@@ -19,8 +25,8 @@ Be careful when making a slice with non zero length attribute and then adding en
 The original entries (from make) will contain the types zero values and each append will increase the length. 
 
 
-Money (Decimal Values)
-----------------------
+MONEY (Decimal Values)
+--------------------------
 There doesn't seem to be a standard way to handle decimal values, like money, in Go.
 One solution is the shopspring/decimal pkg. It has many features and is probably a safe way to go.
 https://pkg.go.dev/github.com/shopspring/decimal#section-readme
@@ -31,7 +37,7 @@ If your needs are more modest, you might look at the following solution.
 2. Convert from string to float64 for computations.
 3. After each computation "fix" the result by calling a fixer func (see Money2, Money4 below).
 
-func Money2(amt float64) float64 { // return 2 decimal places
+func Money2(amt float64) float64 { // round to 2 decimal places
 	if amt == 0 {
 		return 0
 	}
@@ -45,7 +51,7 @@ func Money2(amt float64) float64 { // return 2 decimal places
 	return float64(intAmt) / 100
 }
 
-func Money4(amt float64) float64 { // return 4 decimal places
+func Money4(amt float64) float64 { // round to 4 decimal places
 	if amt == 0 {
 		return 0
 	}
@@ -79,3 +85,45 @@ saveValue := fmt.Sprintf("%016.4f", m4Tot)  // with leading zeros, can use value
 // final total = 841,912,732.5000 (1603.6433 x 525,000 exactly)
 
 // without using Money4, final total was 841,912,732.5098 (about 1 cent too high)
+
+
+GLOBAL VARS IN MULTI GOROUTINE PROGRAM
+------------------------------------------------------------------------------------
+
+In programs with multiple goroutines (such as http server), using global variables may require special
+code to prevent problems. If 1 goroutine is updating a global value while another is trying to read it,
+there will be an issue.
+
+Use channels rather than globals to pass values between goroutines. Some needs are better handled with a global.
+I use them for things like a server status value. Before processing a server request, the status is checked.
+The status may be changed at any time by a different goroutine.
+
+Example implementation using the type GlobalVal. Each global is an instance of this type.
+Another use case might be a global counter (int value) that has Get, Set, and Increment methods.
+
+type GlobalVal struct {
+	Lock  sync.RWMutex
+	Value string
+}
+
+func (gv *GlobalVal) Get() string {
+	gv.Lock.RLock()
+	v := gv.Value
+	gv.Lock.RUnlock()
+	return v
+}
+func (gv *GlobalVal) Set(newVal string) {
+	gv.Lock.Lock()
+	gv.Value = newVal
+	gv.Lock.Unlock()
+}
+
+var ServerStatus GlobalVal
+var TraceStatus GlobalVal
+
+currentStatus := ServerStatus.Get()
+ServerStatus.Set("shutting down")
+
+if TraceStatus.Get() == "traceon" {
+	write msg to trace log file
+}
