@@ -5,6 +5,8 @@ Contents
 1. Slices
 2. Money (decimal numbers)
 3. Global Variables (in multi goroutine programs)
+4. Type Methods 
+5. Types From Other Types (ex. time.Duration)
 
 SLICES
 ----------
@@ -127,3 +129,45 @@ ServerStatus.Set("shutting down")
 if TraceStatus.Get() == "traceon" {
 	write msg to trace log file
 }
+
+
+TYPE METHODS 
+--------------------
+These are simply a convenient way of organizing and calling funcs.
+In the following example, Battery is the method receiver type.
+The method doubleA uses a pointer type for the reference to the instance of Battery.
+If a pointer type is not used, then a copy of the instance is passed. The original is not changed.
+
+type Battery struct {
+	A int
+}
+func (bat *Battery) doubleA() {  // the A value is changed in the receiver instance of Battery
+	bat.A = bat.A * 2
+}
+
+var v1 = Battery{A:1}
+v1.doubleA()
+
+-- Equivalent Code --------------------------
+
+func doubleA( bat *Battery ) {
+	bat.A = bat.A * 2
+}
+doubleA(&v1)
+
+
+TYPES FROM OTHER TYPES
+-------------------------
+I included this topic because it seemed a little confusing to me at first.
+For example, the func time.Sleep requires a parameter of type time.Duration.
+This type is simply int64, but you must use a value of type time.Duration.
+You can use a literal or constant value which are automatically type converted.
+You can also use type conversion, ex. time.Duration(intVal).
+
+One cool feature is to make new types from basic types and add methods to them.
+type CoolString string 
+func (cs CoolString) hello() {
+	fmt.Println("hello " + cs)
+}
+var p1 CoolString = "Ned"
+p1.hello()  // hello Ned
