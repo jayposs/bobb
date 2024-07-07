@@ -1,7 +1,7 @@
 {
-    "dbPath": "bobb_test.db",
+    "dbPath": "bobb_demo.db",
     "port":   "8000",
-    "trace":  "off",
-    "logPath": "bobb_run.log",
+    "trace":  "on",
+    "logPath": "",
     "compressResponse": false
 }

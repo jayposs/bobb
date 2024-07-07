@@ -173,17 +173,15 @@ See demo program "update" func for an example solution to this problem.
 * linux_notes.txt - for running server in background       
 
 ### Instructions  
-I recommend treating Bobb like one of your personal projects. The code size is small and pretty
-straight forward. Add features you want.  
-
 Go version 1.21 or higher is required.  
 
 Bobb is a Go module containing:
-* executable programs (server.go, indexloader.go, demo.go, bulkloader.go)
+* executable programs (bobb_server.go, indexloader.go, demo.go, bulkloader.go)
 * types, constants, and funcs used by client programs and the server program  
   
-One install option is to clone the repo to your machine and run go mod tidy for the bobb module.  
-Dependencies should be installed (bbolt, fastjson).
+I recommend cloning bobb to your machine.  
+   
+**See info/quickstart.md for steps**
 
 Your client program modules need the following lines in their module's go.mod file:
 * replace bobb => /home/username/bobb  (location of bobb module)
@@ -206,15 +204,6 @@ require (
 )
 
 ```
-To try out bobb:  
-1. cd to bobb/server dir
-2. edit bobb_settings.json to use desired db file location and port
-3. go run bobb_server.go  (should display "waiting for requests ...")
-4. open new terminal window or put server to background (see linux_notes.txt)
-5. cd bobb/demo dir
-6. go run demo.go  (last display line should indicate demo finished successfully)
-
-Sorry Windows users, directions are geared for linux/osx. You could spinup a cheap cloud linux instance.  
    
 NOTE  
 If server not using same port as in client.BaseURL, client program must change client.BaseURL to use same port as server.
