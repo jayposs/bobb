@@ -269,6 +269,9 @@ func Qry(tx *bolt.Tx, req *QryRequest) *Response {
 	} else {
 		k, v = csr.Seek([]byte(req.StartKey))
 	}
+
+	parser := parserPool.Get()
+
 	Trace("__ qry find start __")
 	for k != nil {
 		key := string(k)
@@ -277,7 +280,13 @@ func Qry(tx *bolt.Tx, req *QryRequest) *Response {
 		}
 		keep := true
 		if len(req.FindConditions) > 0 {
-			keep = recFind(v, req.FindConditions)
+			parsedRec, err := parser.ParseBytes(v)
+			if err != nil {
+				log.Println("ERROR - Qry failed, cannot parse data record-", err)
+				log.Println(k, string(v))
+				return nil
+			}
+			keep = parsedRecFind(parsedRec, req.FindConditions)
 		}
 		if keep {
 			resultRecs[key] = v
@@ -289,6 +298,8 @@ func Qry(tx *bolt.Tx, req *QryRequest) *Response {
 		k, v = csr.Next()
 	}
 	Trace("__ qry find done __")
+
+	parserPool.Put(parser)
 
 	resp.Recs = make([][]byte, len(resultKeys))
 
@@ -333,6 +344,8 @@ func QryIndex(tx *bolt.Tx, req *QryIndexRequest) *Response {
 	} else {
 		indexKey, dataKey = csr.Seek([]byte(req.StartKey))
 	}
+	parser := parserPool.Get()
+
 	for indexKey != nil {
 		if req.EndKey != "" && string(indexKey) > req.EndKey {
 			break
@@ -347,7 +360,13 @@ func QryIndex(tx *bolt.Tx, req *QryIndexRequest) *Response {
 		}
 		keep := true
 		if len(req.FindConditions) > 0 {
-			keep = recFind(dataVal, req.FindConditions)
+			parsedRec, err := parser.ParseBytes(dataVal)
+			if err != nil {
+				log.Println("ERROR - QryIndex failed, cannot parse data record-", err)
+				log.Println(indexKey, dataKey, string(dataVal))
+				return nil
+			}
+			keep = parsedRecFind(parsedRec, req.FindConditions)
 		}
 		if keep {
 			key := string(dataKey)
@@ -359,6 +378,8 @@ func QryIndex(tx *bolt.Tx, req *QryIndexRequest) *Response {
 		}
 		indexKey, dataKey = csr.Next()
 	}
+	parserPool.Put(parser)
+
 	resp.Recs = make([][]byte, len(resultKeys))
 
 	if len(req.SortKeys) == 0 { // no sort parms in request, return in natural key order

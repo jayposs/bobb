@@ -85,3 +85,63 @@ func recFind(rec []byte, conditions []FindCondition) bool {
 	}
 	return true // no condition check returned false
 }
+
+// parseRecFind determines if rec value(s) meet all find conditions using already parsed rec.
+func parsedRecFind(parsedRec *fastjson.Value, conditions []FindCondition) bool {
+	var conditionMet bool
+	var n int                        // compare result  1:greater, -1:less, 0:equal
+	var compareVal, recValStr string // only used for strings, to support StartsWith and Contains ops
+	for _, condition := range conditions {
+		conditionMet = false
+		switch {
+		case slices.Contains(StrFindOps, condition.Op):
+			compareVal = strings.ToLower(condition.ValStr)
+			strBytes := parsedRec.GetStringBytes(condition.Fld)
+			if strBytes == nil {
+				recValStr = ""
+			} else {
+				recValStr = strings.ToLower(string(strBytes))
+			}
+			n = strCompare(recValStr, compareVal)
+		case slices.Contains(IntFindOps, condition.Op):
+			recVal := parsedRec.GetInt(condition.Fld)
+			n = intCompare(recVal, condition.ValInt)
+		default:
+			log.Println("FindCondition invalid op", condition.Op)
+			return false
+		}
+		switch condition.Op {
+		case FindMatches, FindEquals:
+			if n == 0 {
+				conditionMet = true
+			}
+		case FindLessThan, FindBefore:
+			if n == -1 {
+				conditionMet = true
+			}
+		case FindGreaterThan, FindAfter:
+			if n == 1 {
+				conditionMet = true
+			}
+		case FindStartsWith:
+			if strings.HasPrefix(recValStr, compareVal) {
+				conditionMet = true
+			}
+		case FindContains:
+			if strings.Contains(recValStr, compareVal) {
+				conditionMet = true
+			}
+		}
+		if condition.Not {
+			if conditionMet { // condition.Not indicates to exclude recs that meet condition
+				return false
+			} else {
+				continue // rec doesn't meet condition, so don't exclude it
+			}
+		}
+		if !conditionMet {
+			return false // condition was not met, end recFind
+		}
+	}
+	return true // no condition check returned false
+}

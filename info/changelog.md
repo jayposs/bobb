@@ -54,3 +54,11 @@ This code is more of an example that may need to be modified for specific needs.
 * exp_requests.go - GetValuesRequest and RecValues types, GetValues func
 * server/bobb_server.go - add routing code
 * demo/demo.go - add getValues func
+
+**Jul 9, 2024 - Use Parsed Rec for Find Operations**
+
+Should improve performance when multiple find conditions are used for queryies.  
+  
+* rec.go - add func parsedRecFind
+    * works like recFind except uses already parsed rec (*fastjson.Value) rather than []byte.
+* view_handlers.go - change Qry and QryIndex to parse rec and call parsedRecFind rather than recFind.    
