@@ -56,14 +56,12 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
+
+	// *** GET REQUEST ROUTING *****************************************************
+
 	http.HandleFunc("/get", func(w http.ResponseWriter, r *http.Request) {
 		var request bobb.GetRequest
 		dbHandler(bobb.OpGet, &request, w, r)
-	})
-	// getvalues is experimental request, see exp_handlers.go
-	http.HandleFunc("/getvalues", func(w http.ResponseWriter, r *http.Request) {
-		var request bobb.GetValuesRequest
-		dbHandler(bobb.OpGetValues, &request, w, r)
 	})
 	http.HandleFunc("/getone", func(w http.ResponseWriter, r *http.Request) {
 		var request bobb.GetOneRequest
@@ -81,6 +79,9 @@ func main() {
 		var request bobb.GetIndexRequest
 		dbHandler(bobb.OpGetIndex, &request, w, r)
 	})
+
+	// *** PUT REQUEST ROUTING *****************************************************
+
 	http.HandleFunc("/put", func(w http.ResponseWriter, r *http.Request) {
 		var request bobb.PutRequest
 		dbHandler(bobb.OpPut, &request, w, r)
@@ -93,10 +94,13 @@ func main() {
 		var request bobb.PutIndexRequest
 		dbHandler(bobb.OpPutIndex, &request, w, r)
 	})
-	http.HandleFunc("/delete", func(w http.ResponseWriter, r *http.Request) {
-		var request bobb.DeleteRequest
-		dbHandler(bobb.OpDelete, &request, w, r)
+	http.HandleFunc("/putbkts", func(w http.ResponseWriter, r *http.Request) {
+		var request bobb.PutBktsRequest
+		dbHandler(bobb.OpPutBkts, &request, w, r)
 	})
+
+	// *** QRY REQUEST ROUTING *****************************************************
+
 	http.HandleFunc("/qry", func(w http.ResponseWriter, r *http.Request) {
 		var request bobb.QryRequest
 		dbHandler(bobb.OpQry, &request, w, r)
@@ -104,6 +108,13 @@ func main() {
 	http.HandleFunc("/qryindex", func(w http.ResponseWriter, r *http.Request) {
 		var request bobb.QryIndexRequest
 		dbHandler(bobb.OpQryIndex, &request, w, r)
+	})
+
+	// *** OTHER REQUEST ROUTING *****************************************************
+
+	http.HandleFunc("/delete", func(w http.ResponseWriter, r *http.Request) {
+		var request bobb.DeleteRequest
+		dbHandler(bobb.OpDelete, &request, w, r)
 	})
 	http.HandleFunc("/bkt", func(w http.ResponseWriter, r *http.Request) {
 		var request bobb.BktRequest
@@ -117,10 +128,7 @@ func main() {
 		var request bobb.CopyDBRequest
 		dbHandler(bobb.OpCopyDB, &request, w, r)
 	})
-	http.HandleFunc("/putbkts", func(w http.ResponseWriter, r *http.Request) {
-		var request bobb.PutBktsRequest
-		dbHandler(bobb.OpPutBkts, &request, w, r)
-	})
+
 	// activates Trace() calls in code, see scripts/traceon.sh
 	http.HandleFunc("/traceon", func(w http.ResponseWriter, r *http.Request) {
 		bobb.TraceStatus.Set("on") // see util.go
@@ -133,7 +141,6 @@ func main() {
 		log.Println("tracing turned off")
 		w.WriteHeader(http.StatusOK)
 	})
-
 	http.HandleFunc("/down", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		shutDown()
@@ -144,6 +151,15 @@ func main() {
 		log.Println("invalid request url:", r.RequestURI)
 		http.Error(w, "invalid request url", http.StatusNotFound)
 	})
+
+	// *** EXPERIMENTAL REQUEST ROUTING *****************************************************
+
+	http.HandleFunc("/getvalues", func(w http.ResponseWriter, r *http.Request) {
+		var request bobb.GetValuesRequest
+		dbHandler(bobb.OpGetValues, &request, w, r)
+	})
+
+	// --- END REQUEST ROUTING --------------------------------------------------------------
 
 	bobb.ServerStatus.Set("running") // see util.go
 
@@ -177,15 +193,12 @@ func dbHandler(op string, request any, w http.ResponseWriter, r *http.Request) {
 	var jsonData []byte
 	var jsonErr error
 	switch op {
+
+	// *** GET OPERATIONS - SEE VIEW_HANDLERS.GO *****************************************************
+
 	case bobb.OpGet:
 		txErr = db.View(func(tx *bolt.Tx) error {
 			response = bobb.Get(tx, request.(*bobb.GetRequest))
-			jsonData, jsonErr = json.Marshal(response)
-			return nil
-		})
-	case bobb.OpGetValues: // GetValues is experimental request, see exp_handlers.go
-		txErr = db.View(func(tx *bolt.Tx) error {
-			response = bobb.GetValues(tx, request.(*bobb.GetValuesRequest))
 			jsonData, jsonErr = json.Marshal(response)
 			return nil
 		})
@@ -213,6 +226,9 @@ func dbHandler(op string, request any, w http.ResponseWriter, r *http.Request) {
 			jsonData, jsonErr = json.Marshal(response)
 			return nil
 		})
+
+	// *** PUT OPERATIONS - SEE UPDT_HANDLERS.GO ****************************************************
+
 	case bobb.OpPut:
 		txErr = db.Update(func(tx *bolt.Tx) error {
 			response, dbErr = bobb.Put(tx, request.(*bobb.PutRequest))
@@ -231,12 +247,9 @@ func dbHandler(op string, request any, w http.ResponseWriter, r *http.Request) {
 			jsonData, jsonErr = json.Marshal(response)
 			return dbErr
 		})
-	case bobb.OpDelete:
-		txErr = db.Update(func(tx *bolt.Tx) error {
-			response, dbErr = bobb.Delete(tx, request.(*bobb.DeleteRequest))
-			jsonData, jsonErr = json.Marshal(response)
-			return dbErr
-		})
+
+	// *** QRY OPERATIONS - SEE VIEW_HANDLERS.GO *****************************************************
+
 	case bobb.OpQry:
 		txErr = db.View(func(tx *bolt.Tx) error {
 			response = bobb.Qry(tx, request.(*bobb.QryRequest))
@@ -248,6 +261,15 @@ func dbHandler(op string, request any, w http.ResponseWriter, r *http.Request) {
 			response = bobb.QryIndex(tx, request.(*bobb.QryIndexRequest))
 			jsonData, jsonErr = json.Marshal(response)
 			return nil
+		})
+
+	// *** OTHER OPERATIONS *****************************************************
+
+	case bobb.OpDelete:
+		txErr = db.Update(func(tx *bolt.Tx) error {
+			response, dbErr = bobb.Delete(tx, request.(*bobb.DeleteRequest))
+			jsonData, jsonErr = json.Marshal(response)
+			return dbErr
 		})
 	case bobb.OpBkt:
 		txErr = db.Update(func(tx *bolt.Tx) error {
@@ -273,15 +295,33 @@ func dbHandler(op string, request any, w http.ResponseWriter, r *http.Request) {
 			jsonData, jsonErr = json.Marshal(response)
 			return dbErr
 		})
+
+	// *** EXPERIMENTAL OPERATIONS - SEE EXPERIMENTAL.GO *****************************************************
+
+	case bobb.OpGetValues: // GetValues is experimental request, see experimental.go
+		txErr = db.View(func(tx *bolt.Tx) error {
+			response = bobb.GetValues(tx, request.(*bobb.GetValuesRequest))
+			jsonData, jsonErr = json.Marshal(response)
+			return nil
+		})
 	}
-	if txErr != nil {
-		log.Println("DB Transaction Error Occured", txErr)
-		http.Error(w, txErr.Error(), http.StatusInternalServerError)
-		return
+	// when dbErr == bobb.DataError
+	//  db.Update func returned non nil dbErr to cause rollback of updates
+	//  this error indicates a problem with the input data, not a database error
+	//  we want normal response to be returned to requestor rather than a server error
+	if dbErr == bobb.DataError {
+		log.Println("dataerror detected")
+		dbErr = nil
+		txErr = nil
 	}
 	if dbErr != nil {
 		log.Println("DB Error Occured - Update transaction rolled  back", dbErr)
 		http.Error(w, dbErr.Error(), http.StatusInternalServerError)
+		return
+	}
+	if txErr != nil {
+		log.Println("DB Transaction Error Occured", txErr)
+		http.Error(w, txErr.Error(), http.StatusInternalServerError)
 		return
 	}
 	// NOTE - marshalling is done before exiting bbolt transaction

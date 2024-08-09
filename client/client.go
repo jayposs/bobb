@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
-	"errors"
 	"io"
 	"log"
 	"net/http"
@@ -35,28 +34,28 @@ func Run(httpClient *http.Client, op string, payload interface{}) (*bobb.Respons
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Accept-Encoding", "gzip")
 
-	resp, doErr := httpClient.Do(req)
+	httpResp, doErr := httpClient.Do(req)
 	defer func() {
-		if doErr == nil {
-			resp.Body.Close()
-		}
+		//if doErr == nil {
+		httpResp.Body.Close()
+		//}
 	}()
-	if resp.StatusCode != http.StatusOK || doErr != nil {
-		log.Println("Request Failed, Status:", resp.Status)
-		if resp.StatusCode == http.StatusNotFound {
+	if httpResp.StatusCode != http.StatusOK || doErr != nil {
+		log.Println("Request Failed, Status:", httpResp.Status)
+		if httpResp.StatusCode == http.StatusNotFound {
 			log.Println("verify op code specified in Run call is valid:", op, reqUrl)
 		}
 		return nil, doErr
 	}
 
 	var result []byte
-	encoding := resp.Header.Get("Content-Encoding")
+	encoding := httpResp.Header.Get("Content-Encoding")
 	if encoding == "gzip" {
-		gzipContent, _ := gzip.NewReader(resp.Body)
+		gzipContent, _ := gzip.NewReader(httpResp.Body)
 		result, err = io.ReadAll(gzipContent)
 		gzipContent.Close()
 	} else {
-		result, err = io.ReadAll(resp.Body)
+		result, err = io.ReadAll(httpResp.Body)
 	}
 	if err != nil {
 		log.Println("Read Http Response.Body Failed:", err)
@@ -72,60 +71,4 @@ func Run(httpClient *http.Client, op string, payload interface{}) (*bobb.Respons
 	err = json.Unmarshal(result, bobbResp)
 
 	return bobbResp, err
-}
-
-// format JSON in easy to view format
-func fmtJSON(jsonContent []byte) string {
-	var out bytes.Buffer
-	json.Indent(&out, jsonContent, "", "  ")
-	return out.String()
-}
-
-// GetOne is shortcut func. Gets rec from bkt where key=id.
-// Unmarshals rec into result (pointer to type var).
-func GetOne(httpClient *http.Client, bkt, id string, result any) error {
-	req := bobb.GetOneRequest{BktName: bkt, Key: id}
-	resp, err := Run(httpClient, bobb.OpGetOne, req)
-	if resp.Status != bobb.StatusOk {
-		return errors.New(resp.Msg)
-	}
-	err = json.Unmarshal(resp.Rec, result)
-	return err
-}
-
-// PutOne is shortcut func. Puts rec into specified bkt.
-// The rec key wil be the value of fld with name=idFld.
-func PutOne(httpClient *http.Client, bkt, idFld string, rec any) error {
-	jsonRec, err := json.Marshal(rec)
-	if err != nil {
-		log.Println("Client.PutOne json.Marshal failed", err)
-		return err
-	}
-	req := bobb.PutOneRequest{BktName: bkt, KeyField: idFld, Rec: jsonRec}
-	resp, err := Run(httpClient, bobb.OpPutOne, req)
-	if resp.Status != bobb.StatusOk {
-		log.Println(string(jsonRec))
-		return errors.New(resp.Msg)
-	}
-	return err
-}
-
-func CreateBkt(httpClient *http.Client, bktName string) error {
-	req := bobb.BktRequest{
-		BktName:   bktName,
-		Operation: "create",
-	}
-	resp, err := Run(httpClient, bobb.OpBkt, req)
-	if resp.Status != bobb.StatusOk {
-		return errors.New(resp.Msg)
-	}
-	return err
-}
-
-func DeleteBkt(httpClient *http.Client, bktName string) {
-	req := bobb.BktRequest{
-		BktName:   bktName,
-		Operation: "delete",
-	}
-	Run(httpClient, bobb.OpBkt, req) // errors ignored
 }

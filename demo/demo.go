@@ -13,7 +13,7 @@ import (
 
 	"bobb"
 	bo "bobb/client"
-	data "bobb/demodata" // data types(datatypes.go) & conversion funcs(datafuncs.go)
+	data "bobb/demodata" // data types(datatypes.go)
 )
 
 const locationBkt = "location"                // name of bkt used for all tests
@@ -71,16 +71,24 @@ func put() {
 	log.Println("-- put starting -----")
 
 	// Put requires records be json.Marshalled
-	putRecs := data.MapToJson(locationData) // convert map of db recs to slice of json recs
+	putRecs := bo.MapToJson(locationData) // convert map of db recs to slice of json recs
 	if putRecs == nil {
 		log.Fatalln("put failed")
 	}
 	req := bobb.PutRequest{
-		BktName:  locationBkt,
-		KeyField: "id", // json tag value of key field
-		Recs:     putRecs,
+		BktName:      locationBkt,
+		KeyField:     "id", // json tag value of key field
+		Recs:         putRecs,
+		RequiredFlds: []string{"bad field name"},
 	}
 	resp, err := bo.Run(httpClient, bobb.OpPut, req)
+	log.Println("put request should fail, bad data sent: ", resp.Status, resp.Msg)
+	if resp.Status == bobb.StatusOk {
+		log.Fatalln("Put data verification failed, resp.Status should not be ok")
+	}
+
+	req.RequiredFlds = []string{"address", "city", "st"}
+	resp, err = bo.Run(httpClient, bobb.OpPut, req)
 
 	checkResp(resp, err, "put")
 
@@ -99,7 +107,7 @@ func get(recIds ...string) {
 	resp, err := bo.Run(httpClient, bobb.OpGet, req)
 	checkResp(resp, err, "get")
 
-	results := data.JsonToMap(resp.Recs, data.Location{}) // convert resp recs to map of Location recs
+	results := bo.JsonToMap(resp.Recs, data.Location{}) // convert resp recs to map of Location recs
 
 	// confirm results match desired results
 	for _, id := range recIds {
@@ -121,7 +129,7 @@ func getAll() {
 	resp, err := bo.Run(httpClient, bobb.OpGetAll, req)
 	checkResp(resp, err, "getAll")
 
-	results := data.JsonToMap(resp.Recs, data.Location{}) // convert resp recs to map of Location recs
+	results := bo.JsonToMap(resp.Recs, data.Location{}) // convert resp recs to map of Location recs
 
 	// confirm results match desired results
 	for id, original := range locationData {
@@ -178,7 +186,7 @@ func getAllRange(start, end string) {
 	resp, err := bo.Run(httpClient, bobb.OpGetAll, req)
 	checkResp(resp, err, "getAllRange")
 
-	results := data.JsonToMap(resp.Recs, data.Location{}) // convert resp recs to map of Location recs
+	results := bo.JsonToMap(resp.Recs, data.Location{}) // convert resp recs to map of Location recs
 
 	// confirm results match desired results
 	for id, original := range locationData {
@@ -227,13 +235,18 @@ func getAllKeys() {
 func qry1() {
 	log.Println("-- qry1 starting -----")
 
-	criteria := []bobb.FindCondition{
-		{Fld: "zip", Op: bobb.FindStartsWith, ValStr: "54"},
-	}
-	sortKeys := []bobb.SortKey{
-		{Fld: "locationType", Dir: bobb.SortDescInt},
-		{Fld: "address", Dir: bobb.SortAscStr},
-	}
+	//criteria := []bobb.FindCondition{
+	//	{Fld: "zip", Op: bobb.FindStartsWith, ValStr: "54"},
+	//}
+	criteria := bo.Find(nil, "zip", bobb.FindStartsWith, "54")
+
+	//sortKeys := []bobb.SortKey{
+	//	{Fld: "locationType", Dir: bobb.SortDescInt},
+	//	{Fld: "address", Dir: bobb.SortAscStr},
+	//}
+	sortKeys := bo.Sort(nil, "locationType", bobb.SortDescInt)
+	sortKeys = bo.Sort(sortKeys, "address", bobb.SortAscStr)
+
 	req := bobb.QryRequest{
 		BktName:        locationBkt,
 		FindConditions: criteria,
@@ -246,7 +259,7 @@ func qry1() {
 	if len(resp.Recs) != len(matchingIds) {
 		log.Fatalln("qry1 wrong number of resp recs-", len(resp.Recs))
 	}
-	results := data.JsonToSlice(resp.Recs, data.Location{}) // convert resp recs to map of Location recs
+	results := bo.JsonToSlice(resp.Recs, data.Location{}) // convert resp recs to map of Location recs
 
 	// confirm results match desired results
 	for i, id := range matchingIds {
@@ -262,11 +275,15 @@ func qry1() {
 func qry2() {
 	log.Println("-- qry2 starting -----")
 
-	criteria := []bobb.FindCondition{
-		{Fld: "st", Op: bobb.FindAfter, ValStr: "ok"},
-		{Fld: "address", Op: bobb.FindContains, ValStr: "ave"},
-		{Fld: "locationType", Op: bobb.FindEquals, ValInt: 3},
-	}
+	//criteria := []bobb.FindCondition{
+	//	{Fld: "st", Op: bobb.FindAfter, ValStr: "ok"},
+	//	{Fld: "address", Op: bobb.FindContains, ValStr: "ave"},
+	//	{Fld: "locationType", Op: bobb.FindEquals, ValInt: 3},
+	//}
+	criteria := bo.Find(nil, "st", bobb.FindAfter, "ok")
+	criteria = bo.Find(criteria, "address", bobb.FindContains, "ave")
+	criteria = bo.Find(criteria, "locationType", bobb.FindEquals, 3)
+
 	sortKeys := []bobb.SortKey{
 		{Fld: "st", Dir: bobb.SortDescStr},
 		{Fld: "city", Dir: bobb.SortAscStr},
@@ -283,7 +300,7 @@ func qry2() {
 	if len(resp.Recs) != len(matchingIds) {
 		log.Fatalln("qry2 wrong number of resp recs-", len(resp.Recs))
 	}
-	results := data.JsonToSlice(resp.Recs, data.Location{}) // convert resp recs to slice of Location recs
+	results := bo.JsonToSlice(resp.Recs, data.Location{}) // convert resp recs to slice of Location recs
 
 	// confirm results match desired results
 	for i, id := range matchingIds {
@@ -299,13 +316,18 @@ func qry2() {
 func qry3() {
 	log.Println("-- qry3 starting -----")
 
-	criteria := []bobb.FindCondition{
-		{Fld: "st", Op: bobb.FindMatches, ValStr: "TN"},
-		{Fld: "locationType", Op: bobb.FindEquals, ValInt: 3, Not: true},
-	}
-	sortKeys := []bobb.SortKey{
-		{Fld: "city", Dir: bobb.SortAscStr},
-	}
+	//criteria := []bobb.FindCondition{
+	//	{Fld: "st", Op: bobb.FindMatches, ValStr: "TN"},
+	//	{Fld: "locationType", Op: bobb.FindEquals, ValInt: 3, Not: true},
+	//}
+	criteria := bo.Find(nil, "st", bobb.FindMatches, "TN")
+	criteria = bo.Find(criteria, "locationType", bobb.FindEquals, 3, bobb.FindNot)
+
+	//sortKeys := []bobb.SortKey{
+	//	{Fld: "city", Dir: bobb.SortAscStr},
+	//}
+	sortKeys := bo.Sort(nil, "city", bobb.SortAscStr)
+
 	req := bobb.QryRequest{
 		BktName:        locationBkt,
 		FindConditions: criteria,
@@ -318,7 +340,7 @@ func qry3() {
 	if len(resp.Recs) != len(matchingIds) {
 		log.Fatalln("qry3 wrong number of resp recs-", len(resp.Recs))
 	}
-	results := data.JsonToSlice(resp.Recs, data.Location{}) // convert resp recs to slice of Location recs
+	results := bo.JsonToSlice(resp.Recs, data.Location{}) // convert resp recs to slice of Location recs
 
 	// confirm results match desired results
 	for i, id := range matchingIds {
@@ -409,7 +431,7 @@ func getIndex() {
 	resp, err := bo.Run(httpClient, bobb.OpGetIndex, req)
 	checkResp(resp, err, "getIndex")
 
-	results := data.JsonToSlice(resp.Recs, data.Location{}) // convert resp recs to slice of Location recs
+	results := bo.JsonToSlice(resp.Recs, data.Location{}) // convert resp recs to slice of Location recs
 
 	// confirm results match desired results
 	matchingIds := []string{"101", "102", "104", "103"} // returned in zip code order
@@ -442,7 +464,7 @@ func qryIndex() {
 	resp, err := bo.Run(httpClient, bobb.OpQryIndex, req)
 	checkResp(resp, err, "qryIndex")
 
-	results := data.JsonToSlice(resp.Recs, data.Location{}) // convert resp recs to slice of Location recs
+	results := bo.JsonToSlice(resp.Recs, data.Location{}) // convert resp recs to slice of Location recs
 
 	// confirm results match desired results
 	matchingIds := []string{"999", "103"}
@@ -610,7 +632,7 @@ func putBkts() {
 	req2 := bobb.GetAllRequest{BktName: "order_item"}
 	resp2, _ := bo.Run(httpClient, bobb.OpGetAll, req2)
 
-	results2 := data.JsonToSlice(resp2.Recs, data.OrderItem{})
+	results2 := bo.JsonToSlice(resp2.Recs, data.OrderItem{})
 	for i, jsonRec := range results2 {
 		if items[i] != jsonRec {
 			log.Fatalln("putBkts db item does not match sent item")

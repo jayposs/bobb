@@ -73,30 +73,38 @@ type GetIndexRequest struct {
 // If key exists, existing record is replaced otherwise record is added.
 // Recs must include the field to be used as the key (unique id).
 // Recs are the json marshaled value of the record type.
+// RequiredFlds (optional), fld names that must be included in recs.
+// Only top level fld names allowed.
 type PutRequest struct {
-	BktName  string   `json:"bktName"`
-	KeyField string   `json:"keyField"` // field in Rec containing value to be used as key
-	Recs     [][]byte `json:"recs"`     // records to be added or replaced in db
+	BktName      string   `json:"bktName"`
+	KeyField     string   `json:"keyField"`     // field in Rec containing value to be used as key
+	Recs         [][]byte `json:"recs"`         // records to be added or replaced in db
+	RequiredFlds []string `json:"requiredFlds"` // recs must include these fields (optional)
 }
 
 // PutBktsRequest is used to add or replace records in 2 bkts with 1 transaction.
 // For example: adding new order and order items.
 // If either bkt update fails, complete transaction is rolled back.
+// RequiredFlds (optional), fld names that must be included in recs.
 type PutBktsRequest struct {
-	BktName  string   `json:"bktName"`
-	KeyField string   `json:"keyField"` // field in Rec containing value to be used as key
-	Recs     [][]byte `json:"recs"`     // records to be added or replaced in bkt 1
-	Bkt2Name string   `json:"bkt2Name"`
-	Recs2    [][]byte `json:"recs2"` // records to be added or replaced in bkt 2
+	BktName       string   `json:"bktName"`
+	KeyField      string   `json:"keyField"`     // field in Rec containing value to be used as key
+	Recs          [][]byte `json:"recs"`         // records to be added or replaced in bkt 1
+	RequiredFlds  []string `json:"requiredFlds"` // recs must include these fields (optional)
+	Bkt2Name      string   `json:"bkt2Name"`
+	Recs2         [][]byte `json:"recs2"`         // records to be added or replaced in bkt 2
+	RequiredFlds2 []string `json:"requiredFlds2"` // recs must include these fields (optional)
 }
 
 // PutOneRequest is used to add or replace a single record.
 // Rec must include the field to be used as the key (unique id).
 // Rec is the json marshaled value of the record type.
+// RequiredFlds (optional), fld names that must be included in recs.
 type PutOneRequest struct {
-	BktName  string `json:"bktName"`
-	KeyField string `json:"keyField"` // field in Rec containing value to be used as key
-	Rec      []byte `json:"rec"`      // record to be added or replaced in db
+	BktName      string   `json:"bktName"`
+	KeyField     string   `json:"keyField"`     // field in Rec containing value to be used as key
+	Rec          []byte   `json:"rec"`          // record to be added or replaced in db
+	RequiredFlds []string `json:"requiredFlds"` // recs must include these fields (optional)
 }
 
 // IndexKeyVal type is used by PutIndexRequest.

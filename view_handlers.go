@@ -10,7 +10,6 @@ import (
 	"log"
 	"os"
 	"slices"
-	"strings"
 
 	"github.com/valyala/fastjson"
 	bolt "go.etcd.io/bbolt"
@@ -271,6 +270,7 @@ func Qry(tx *bolt.Tx, req *QryRequest) *Response {
 	}
 
 	parser := parserPool.Get()
+	defer parserPool.Put(parser)
 
 	Trace("__ qry find start __")
 	for k != nil {
@@ -284,7 +284,9 @@ func Qry(tx *bolt.Tx, req *QryRequest) *Response {
 			if err != nil {
 				log.Println("ERROR - Qry failed, cannot parse data record-", err)
 				log.Println(k, string(v))
-				return nil
+				resp.Status = StatusFail
+				resp.Msg = "cannot parse data record, see log"
+				return resp
 			}
 			keep = parsedRecFind(parsedRec, req.FindConditions)
 		}
@@ -298,8 +300,6 @@ func Qry(tx *bolt.Tx, req *QryRequest) *Response {
 		k, v = csr.Next()
 	}
 	Trace("__ qry find done __")
-
-	parserPool.Put(parser)
 
 	resp.Recs = make([][]byte, len(resultKeys))
 
@@ -345,6 +345,7 @@ func QryIndex(tx *bolt.Tx, req *QryIndexRequest) *Response {
 		indexKey, dataKey = csr.Seek([]byte(req.StartKey))
 	}
 	parser := parserPool.Get()
+	defer parserPool.Put(parser)
 
 	for indexKey != nil {
 		if req.EndKey != "" && string(indexKey) > req.EndKey {
@@ -364,7 +365,9 @@ func QryIndex(tx *bolt.Tx, req *QryIndexRequest) *Response {
 			if err != nil {
 				log.Println("ERROR - QryIndex failed, cannot parse data record-", err)
 				log.Println(indexKey, dataKey, string(dataVal))
-				return nil
+				resp.Status = StatusFail
+				resp.Msg = "cannot parse data record, see log"
+				return resp
 			}
 			keep = parsedRecFind(parsedRec, req.FindConditions)
 		}
@@ -378,8 +381,6 @@ func QryIndex(tx *bolt.Tx, req *QryIndexRequest) *Response {
 		}
 		indexKey, dataKey = csr.Next()
 	}
-	parserPool.Put(parser)
-
 	resp.Recs = make([][]byte, len(resultKeys))
 
 	if len(req.SortKeys) == 0 { // no sort parms in request, return in natural key order
@@ -426,6 +427,7 @@ func qrySort(sortKeys []SortKey, resultKeys []string, resultRecs map[string][]by
 		}
 	}
 	parser := parserPool.Get()
+	defer parserPool.Put(parser)
 
 	// extract sort values from result records
 	resultSortVals := make(map[string][]string) // rec key: []sort values (converted to string)
@@ -442,23 +444,22 @@ func qrySort(sortKeys []SortKey, resultKeys []string, resultRecs map[string][]by
 			sortVal := ""
 			switch sortType {
 			case "string":
-				strBytes := parsedRec.GetStringBytes(sortKey.Fld)
-				if strBytes == nil {
-					log.Println("ERROR - qrySort sort fld not found in record-", sortKey.Fld)
-					return nil
-				} else {
-					sortVal = strings.ToLower(string(strBytes))
-				}
+				//strBytes := parsedRec.GetStringBytes(sortKey.Fld)
+				//if strBytes == nil {
+				//	log.Println("ERROR - qrySort sort fld not found in record-", sortKey.Fld)
+				//	return nil
+				//} else {
+				//	sortVal = strings.ToLower(string(strBytes))
+				//}
+				sortVal = parsedRecGetStr(parsedRec, sortKey.Fld)
 			case "int":
-				intVal := parsedRec.GetInt(sortKey.Fld)
+				intVal := parsedRecGetInt(parsedRec, sortKey.Fld)
 				sortVal = fmt.Sprintf("%011d", intVal) // converts 3456 to 00000003456
 			}
 			sortVals = append(sortVals, sortVal)
 		}
 		resultSortVals[recId] = sortVals
 	}
-	parserPool.Put(parser)
-
 	//for k, v := range resultSortVals {
 	//	log.Println(k, v)
 	//}

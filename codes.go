@@ -1,5 +1,9 @@
 package bobb
 
+import "errors"
+
+var DataError error = errors.New("data error - bad json or no key") // used by put funcs when input data has problems
+
 // Request Operations
 const (
 	OpBkt        = "bkt"
@@ -51,6 +55,8 @@ const (
 	FindLessThan    = "lessthan"    // int
 	FindGreaterThan = "greaterthan" // int
 	FindEquals      = "equals"      // int
+
+	FindNot = true // used to set FindCondition.Not field
 )
 
 var StrFindOps = []string{FindContains, FindMatches, FindStartsWith, FindBefore, FindAfter}
