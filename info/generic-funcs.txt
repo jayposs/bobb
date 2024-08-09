@@ -1,0 +1,51 @@
+Discussion of Go generic funcs in Bobb.
+
+The bbolt database stores records as a slice of bytes. Inside Go programs, records are instances specific Go struct types. Go program records are converted from struct type to []byte using json.Marshal. Bbolt records are converted from []byte to the original struct type using json.Unmarshal.  
+
+Example  
+
+	type Car struct {
+		Id string    `json:"id"`
+		Make string  `json:"make"`
+		Model string `json:"model"`
+	}
+	func (rec Car) RecId() string {
+		return rec.Id
+	}
+	var aCar Car
+	var jsonRec []byte // json encoded version of struct
+	...
+	jsonRec, err := json.Marshal(&aCar)  // dbRec stored in db  
+	...
+	err := json.Unmarshal(jsonRec, &aCar) // convert jsonRec back to Car type
+	``` 
+
+By using generics, a common set of funcs can be used to perform these conversions.  
+See client/data_conversion.go.
+
+	type DBRec interface {  // all data rec struct types must implement this interface.
+		RecId() string
+	}
+	// JsonToMap creates map of db recs from slice of json recs.
+	// Parm dbRec is only used to specify the record type.
+	func JsonToMap[T DBRec](jsonRecs [][]byte, dbRec T) map[string]T {
+		response := make(map[string]T, len(jsonRecs))
+		var rec T
+		var emptyRec T // required to deal with slices/maps in recs, rec = T{} does not work.
+		for _, jsonRec := range jsonRecs {
+			if err := json.Unmarshal(jsonRec, &rec); err != nil {
+				log.Println("JsonToMap - json.Unmarshal error", err)
+				return nil
+			}
+			id := rec.RecId()
+			response[id] = rec
+			rec = emptyRec
+		}
+		return response
+	}
+	var carMap map[string]Car
+	carMap = JsonToMap(dbResponse.Recs, Car{})
+
+
+
+

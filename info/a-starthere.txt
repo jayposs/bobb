@@ -1,0 +1,21 @@
+Getting Started With Bobb
+
+Read long-readme.md for full explanations. 
+
+Bobb is a module with multiple programs and packages.
+See install.txt for installation instructions.
+
+See demo/demo.go for examples of how to use all api features.
+
+Review the following files to gain an understanding of how bobb works.
+* server/bobb_server.go - http server that interacts with the database
+* client/client.go - used by Go apps to send/receive requests/responses with running server
+* types.go - response type and all request types, used by server and clients
+* codes.go - status, request operation, find, and sort code constants
+* view_handlers.go - funcs for all bolt view (read) transactions
+* updt_handlers.go - funcs for all bolt update transactions
+
+Use bobb as a starting point for your own module.
+Check file info/changelog.txt to track changes that you may or may not want.
+
+NOTE - focus is on simplicity, not efficient use of memory

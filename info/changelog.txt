@@ -1,6 +1,6 @@
-## Change Log
+Change Log
 
-**April 22, 2024 - Add Compress Response option**   
+-- April 22, 2024 - Add Compress Response option ---------------------------
 
 Provides option to have response gzipped.  
 May be valuable if client not on same network as server.  
@@ -12,7 +12,7 @@ May be valuable if client not on same network as server.
     * Add if settings.CompressResponse to dbHandler func
     * Add func compressResponse
   
-**May 7, 2024 - Add PutBkts feature**  
+-- May 7, 2024 - Add PutBkts feature ------------------------------------
   
 Provides ability to put records to 2 bkts in a single transaction.  
   
@@ -23,21 +23,21 @@ Provides ability to put records to 2 bkts in a single transaction.
 * Add type PutBktsRequest to types.go
 * Add handler logic for "putbkts" request to bobb_server.go  
 
-**May 23, 2024 - Add demodata pkg**
+-- May 23, 2024 - Add demodata pkg --------------------------------------
   
 Separate db types and funcs from demo.go main pgm.
 
 * demodata/datatypes.go - db record types
 * demodata/datafuncs.go - convert db recs from/to json recs using generic funcs
 
-**June 4, 2024 - Rewrite Qry Sort**  
+-- June 4, 2024 - Rewrite Qry Sort -------------------------------------
 
 Sorting for query requests is now much faster.  
 Previous version did not use fastjson parsing in an efficient way.  
 
 * view_handlers.go - qrySort func rewrite, with minor changes to Qry, QryIndex funcs.
 
-**June 12, 2024 - Modify PutIndex**
+-- June 12, 2024 - Modify PutIndex -------------------------------------
   
 When replacing existing index record due to data change that affects index key,  
 old index record can be deleted on same request.  
@@ -46,19 +46,38 @@ old index record can be deleted on same request.
 * updt_handlers.go - add logic to PutIndex func to delete rec where key = OldKey
 * demo/demo.go - add updateIndex func
 
-**June 14, 2024 - Add Experimental Request, GetValues**
+-- June 14, 2024 - Add Experimental Request, GetValues -----------------
 
 Provides ability to request values only for specific fields rather than entire records.  
 This code is more of an example that may need to be modified for specific needs.  
 
-* exp_requests.go - GetValuesRequest and RecValues types, GetValues func
+* experimental.go - GetValuesRequest and RecValues types, GetValues func
 * server/bobb_server.go - add routing code
 * demo/demo.go - add getValues func
 
-**Jul 9, 2024 - Use Parsed Rec for Find Operations**
+-- Jul 9, 2024 - Use Parsed Rec for Find Operations --------------------
 
 Should improve performance when multiple find conditions are used for queryies.  
   
 * rec.go - add func parsedRecFind
     * works like recFind except uses already parsed rec (*fastjson.Value) rather than []byte.
 * view_handlers.go - change Qry and QryIndex to parse rec and call parsedRecFind rather than recFind.    
+
+-- Aug 9, 2024 - Add data verification -----------------------------------
+
+Optional field check on put requests. Misc other changes.
+
+* updt_handlers.go
+    putRec and Put* funcs, add code for parsing recs and verifying RequiredFlds exist
+    move parserPool.Put(parser) stmt to defer immediately after parserPool.Get()
+    return DataError (see codes.go) when invalid request data is detected
+    clean up error handling, was returning nil on error in some funcs, changed to Response
+* codes.go - add error DataError and constant FindNot
+* types.go - add RequiredFlds to all put requests
+* rec.go - add parsedRecGetStr, parsedRecGetInt
+    change parsedRecFind to use new parsedRecGetStr, parsedRecGetInt
+    removed unused funcs recGetStr, recGetInt, recFind
+* server/bobb_server.go - add code to handle bobb.DataError errors
+* move generic data conversion funcs from demodata/datafuncs.go to client/data_conversion.go
+* move convenience funcs (fmtJson, GetOne, PutOne, etc.) from client/client.go to client/util.go 
+* add new convenience funcs Find, Sort to client/util.go

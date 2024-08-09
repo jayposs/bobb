@@ -1,0 +1,53 @@
+Install, Verify, Use Instructions 
+
+Bobb is not just a package to be used by other Go programs.
+It is a module with multiple packages and executable programs.
+
+Go version 1.21 or higher is required.  
+
+1. clone git repo: git clone https://github.com/jayposs/bobb.git  
+2. cd to bobb directory    
+3. run go mod tidy - should get bbolt and fastjson
+4. cd to server sub directory
+5. confirm bobb_settings.json are ok
+6. go run bobb_server.go  
+   verify "waiting for requests ..." is displayed    
+7. open new terminal window (or put server to background**)
+8. cd to demo sub directory   
+9. go run demo.go  
+   verify "Demo Pgm Finished Successfully" is displayed  
+
+**To put server to background
+1. ctrl-z  
+2. bg  
+3. jobs -l (should show running server)  
+  
+see linux_notes.txt for more info    
+
+Suggestion  
+  Spin up a cloud server to try out.  
+  DigitalOcean $4/mo droplet works fine.  
+  See info/server_setup.txt for steps. 
+
+----------------------------------------------------------------------------------
+CLIENT PROGRAMS 
+
+Your client program modules need the following lines in their module's go.mod file:
+   replace bobb => /home/username/bobb  (location of bobb module)
+   require bobb v0.0.0  
+  
+Example myapps go.mod:
+
+   module myapps
+
+   go 1.21.1
+
+   replace bobb => /home/myuser/bobb
+
+   require bobb v0.0.0
+
+   require (
+      github.com/valyala/fastjson v1.6.4 // indirect
+      go.etcd.io/bbolt v1.3.8 // indirect
+      golang.org/x/sys v0.4.0 // indirect
+   )

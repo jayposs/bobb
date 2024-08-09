@@ -10,7 +10,7 @@ Contents
 
 SLICES
 ----------
-Data is stored in a backing fixed size array. Its size is based on the capacity value used in a "make" command (has defaults if not specified).
+Data is stored in a backing fixed size array. Its size is based on the capacity value used in a "make" command.
 When a slice's array capacity is exceeded, the Go runtime will automatically allocate a new, larger backing array
 and copy the existing elements over to the new array.
 
@@ -19,7 +19,8 @@ A slice header contains a pointer to the data array, length, and capacity.
 When a slice is included as a func call parameter, a copy of the header is passed to the called func.
 If the called func updates the slice, but does not cause the data array to be reallocated (because it's full),
 then the calling code will see the updates made to the slice.
-If the data array is reallocated, then the calling code will not see the updates. Its header still points to the original array.
+If the data array is reallocated, then the calling code will not see the updates. Its header still points to
+the original array.
 
 Other aspects of slices are pretty easy to understand with plenty of explanations elsewhere. 
 
@@ -133,7 +134,9 @@ if TraceStatus.Get() == "traceon" {
 
 TYPE METHODS 
 --------------------
-These are simply a convenient way of organizing and calling funcs.
+These provide a convenient way of organizing and calling funcs and are used to determine
+if a type has the set of method signatures (name, parms, return type) defined by an interface type.
+
 In the following example, Battery is the method receiver type.
 The method doubleA uses a pointer type for the reference to the instance of Battery.
 If a pointer type is not used, then a copy of the instance is passed. The original is not changed.
@@ -148,7 +151,7 @@ func (bat *Battery) doubleA() {  // the A value is changed in the receiver insta
 var v1 = Battery{A:1}
 v1.doubleA()
 
--- Equivalent Code --------------------------
+-- Equivalent Code Using a Regular Func --------------------------
 
 func doubleA( bat *Battery ) {
 	bat.A = bat.A * 2
