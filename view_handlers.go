@@ -198,40 +198,45 @@ func Export(tx *bolt.Tx, req *ExportRequest) *Response {
 	if bkt == nil {
 		return resp
 	}
-	csr := bkt.Cursor()
 
+	exportFile, err := os.Create(req.FilePath)
+	log.Println("created exportfile")
+	if err != nil {
+		log.Println("error creating export file", req.FilePath, err)
+		resp.Status = StatusFail
+		resp.Msg = "error creating export file:" + err.Error()
+		return resp
+	}
+	csr := bkt.Cursor()
 	var k, v []byte
 	if req.StartKey == "" {
 		k, v = csr.First()
 	} else {
 		k, v = csr.Seek([]byte(req.StartKey))
 	}
-	var out bytes.Buffer
 	var counter int
-	out.WriteString("[\n")
+	exportFile.WriteString("[\n")
 	for k != nil {
 		if req.EndKey != "" && string(k) > req.EndKey {
 			break
 		}
 		if counter > 0 {
-			out.WriteString(",\n")
+			exportFile.WriteString(",\n")
 		}
-		json.Indent(&out, v, "", "  ")
+		buffer := new(bytes.Buffer)
+		json.Indent(buffer, v, "", "  ")
+		exportFile.Write(buffer.Bytes())
 		counter++
 		if counter == req.Limit {
 			break
 		}
 		k, v = csr.Next()
 	}
-	out.WriteString("\n]")
-
-	exportFile, err := os.Create(req.FilePath)
-	if err == nil {
-		_, err = exportFile.Write(out.Bytes())
-	}
-	if err != nil {
+	exportFile.WriteString("\n]")
+	if err := exportFile.Close(); err != nil {
+		log.Println("error closing export file", err)
 		resp.Status = StatusFail
-		resp.Msg = "error creating export file:" + err.Error()
+		resp.Msg = "error closing export file" + err.Error()
 		return resp
 	}
 	resp.Status = StatusOk

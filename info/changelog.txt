@@ -90,3 +90,7 @@ Optional field check on put requests. Misc other changes.
 * types.go - add new type FldFormat (used by MergeFlds)
 * indexloader/indexloader.go - use new func MergeFlds to create index keys
 * stress/stress.go - new program for stress testing
+
+-- Aug 14, 2024
+
+* view_handlers.go - change Export func to write directly to file rather than to buffer first.
