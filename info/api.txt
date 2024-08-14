@@ -34,6 +34,19 @@ All requests have the same response type, located in types.go.
     }
 
 -------------------------------------------------------------------------------------------------------
+KEYS
+
+Keys are unique inside a bucket. Bobb requires keys be string values.
+Put transactions either add or replace a record depending on existence of the key.
+
+The record key value must also be contained in a field.
+I normally have a field called "id" that is the record key.
+
+If creating a key from data values:
+    if data value changes, consider impact on key 
+    see MergeFlds func in rec.go for merging multiple values together
+
+-------------------------------------------------------------------------------------------------------
 START / END KEYS
 
 Records are read sequentially in key order. Many requests use Start and End keys to specify a 
@@ -132,6 +145,9 @@ Developer is responsible for maintaining index buckets.
 
 Key - data value(s) from data rec, made unique
 Value - key of data rec in data bucket
+
+See indexloader/indexloader.go, index_settings.json for examples.
+Func MergeFlds in rec.go is used to create keys composed of multiple fld values.
 
 Example:
     data bkt - "inquiry"

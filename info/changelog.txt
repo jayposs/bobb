@@ -81,3 +81,12 @@ Optional field check on put requests. Misc other changes.
 * move generic data conversion funcs from demodata/datafuncs.go to client/data_conversion.go
 * move convenience funcs (fmtJson, GetOne, PutOne, etc.) from client/client.go to client/util.go 
 * add new convenience funcs Find, Sort to client/util.go
+
+-- Aug 14, 2024 ------------------------------------------------------------ 
+
+* rec.go
+    add funcs PlainString, MergeFlds
+    change funcs parsedRecGetStr, parsedRecGetInt to check for field not found error
+* types.go - add new type FldFormat (used by MergeFlds)
+* indexloader/indexloader.go - use new func MergeFlds to create index keys
+* stress/stress.go - new program for stress testing

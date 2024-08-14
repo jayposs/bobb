@@ -27,10 +27,10 @@ const indexSettingsFile = "index_settings.json"
 
 // Loaded from index_settings.json
 type IndexSetting struct {
-	DataBkt   string   `json:"dataBkt"`   // bkt containing data records
-	IndexBkt  string   `json:"indexBkt"`  // bkt containing index records, must have "index" in the name
-	DataFlds  []string `json:"dataFlds"`  // data field name(s) containing value(s) to concatenate for index key
-	DataIdFld string   `json:"dataIdFld"` // fld in data recs containing key (matches rec key)
+	DataBkt   string           `json:"dataBkt"`   // bkt containing data records
+	IndexBkt  string           `json:"indexBkt"`  // bkt containing index records, must have "index" in the name
+	DataFlds  []bobb.FldFormat `json:"dataFlds"`  // data field name(s) containing value(s) to concatenate for index key
+	DataIdFld string           `json:"dataIdFld"` // fld in data recs containing key (matches rec key)
 }
 
 var IndexSettings map[string]IndexSetting
@@ -46,6 +46,7 @@ func main() {
 	if indexName == "" {
 		log.Fatalln("-name command line option required, ex: -name location_zip")
 	}
+	log.Println("indexloader start")
 
 	request := getRequestSettings(indexName) // request is instance of IndexSetting
 	log.Println(request)
@@ -61,36 +62,30 @@ func main() {
 
 	dataRecs := getDataRecs(request.DataBkt)
 
-	indexVals := make([]string, len(request.DataFlds)) // merged together to form indexData
-	var indexData string                               // primary portion of index key
-
 	indexes := make([]bobb.IndexKeyVal, 0, batchSize)
 
 	wg := new(sync.WaitGroup)
 
 	for i, rec := range dataRecs {
-		v, err := jsonParser.ParseBytes(rec)
+		parsedRec, err := jsonParser.ParseBytes(rec)
 		if err != nil {
 			log.Fatalf("cannot parse json: %s", err)
 		}
-		dataKey := string(v.GetStringBytes(request.DataIdFld))
-		if len(request.DataFlds) > 1 {
-			for i, fld := range request.DataFlds {
-				fldVal := v.GetStringBytes(fld)
-				indexVals[i] = string(fldVal)
-			}
-			indexData = strings.Join(indexVals, "|")
-		} else {
-			indexData = string(v.GetStringBytes(request.DataFlds[0]))
-		}
-		indexKey := indexData + "|" + strconv.Itoa(i) // add loop index to ensure uniqueness
+		v := parsedRec.GetStringBytes(request.DataIdFld) // if nil, dataKey will be ""
+		dataKey := string(v)
 
+		indexKey := bobb.MergeFlds(parsedRec, request.DataFlds, "|") // merged plain string values
+		indexKey += "|" + strconv.Itoa(i)                            // make unique
 		indexes = append(indexes, bobb.IndexKeyVal{Key: indexKey, Val: dataKey})
+
+		if i < 100 {
+			log.Println(indexKey)
+		}
 
 		if len(indexes) == batchSize {
 			wg.Add(1)
 			go run(request.IndexBkt, indexes, wg)
-			time.Sleep(10 * time.Millisecond)
+			time.Sleep(20 * time.Millisecond)
 			indexes = make([]bobb.IndexKeyVal, 0, batchSize)
 		}
 	}
@@ -100,6 +95,8 @@ func main() {
 	}
 
 	wg.Wait() // wait for all runs to finish before ending program
+
+	log.Println("indexloader complete")
 }
 
 func run(bkt string, indexes []bobb.IndexKeyVal, wg *sync.WaitGroup) {
@@ -110,12 +107,14 @@ func run(bkt string, indexes []bobb.IndexKeyVal, wg *sync.WaitGroup) {
 	}
 	resp, err := bo.Run(httpClient, "putindex", req)
 	checkResp(resp, err)
+	log.Println("batch complete")
 }
 
 func getDataRecs(dataBkt string) [][]byte {
 	req := bobb.GetAllRequest{BktName: dataBkt}
 	resp, err := bo.Run(httpClient, "getall", req)
 	checkResp(resp, err)
+	log.Println("dataBkt count", len(resp.Recs))
 	return resp.Recs
 }
 

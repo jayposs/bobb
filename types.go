@@ -1,5 +1,12 @@
 package bobb
 
+// FldFormat is used by MergeFlds in rec.go, typically for creating index keys.
+type FldFormat struct {
+	FldName string `json:"fldName"`
+	FldType string `json:"fldType"` // "string, int"
+	Length  int    `json:"length"`
+}
+
 // Response type is returned by all db requests.
 // Individual recs must be json.Unmarshaled into appropriate type by receiver.
 type Response struct {

@@ -3,27 +3,85 @@
 package bobb
 
 import (
+	"fmt"
 	"log"
 	"slices"
+	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/valyala/fastjson"
 )
 
-const StrToLower = true // optional parm used when calling recGetStr()
+const StrToLower = "lower" // optional parm used when calling parsedRecGetStr()
+const StrToPlain = "plain" // optional parm used when calling parsedRecGetStr()
+
+// PlainString returns lower case version of input string with non alphanumeric chars removed.
+// Ex. Hip-Hop > hiphop
+// Used by MergeFlds below.
+func PlainString(in string) string {
+	mapFunc := func(char rune) rune {
+		if unicode.IsLetter(char) || unicode.IsDigit(char) {
+			return char
+		}
+		return -1
+	}
+	plainString := strings.Map(mapFunc, in)
+	return strings.ToLower(plainString)
+}
+
+// MergeFlds is typically used to create index keys composed of multiple flds merged together.
+// Type FldFormat defined in types.go (FldName, FldType, Length).
+// Separator placed between each value.
+// Values are plain strings (lower case alphanumeric, special chars removed).
+func MergeFlds(parsedRec *fastjson.Value, flds []FldFormat, separator string) string {
+	formattedFlds := make([]string, len(flds))
+	var format string
+	var intVal int
+	var strVal string
+	for i, fld := range flds {
+		fmtLength := strconv.Itoa(fld.Length)
+		switch fld.FldType {
+		case "int":
+			intVal = parsedRecGetInt(parsedRec, fld.FldName)
+			format = "%0" + fmtLength + "d"
+			formattedFlds[i] = fmt.Sprintf(format, intVal)
+		case "string":
+			strVal = parsedRecGetStr(parsedRec, fld.FldName, StrToPlain)
+			if len(strVal) > fld.Length {
+				strVal = strVal[:fld.Length]
+			}
+			format = "%-" + fmtLength + "s"
+			formattedFlds[i] = fmt.Sprintf(format, strVal)
+		default:
+			log.Println("MergeFlds, invalid fld type, must be string or int", fld.FldName, fld.FldType)
+			return ""
+		}
+	}
+	return strings.Join(formattedFlds, separator)
+}
 
 // parsedRecGetStr returns the string value for specified fld.
-// Optional toLower bool parm used to return lower case value.
-func parsedRecGetStr(parsedRec *fastjson.Value, fld string, toLower ...bool) string {
+// Parm option can be either StrToLower or StrToPlain.
+func parsedRecGetStr(parsedRec *fastjson.Value, fld string, option ...string) string {
 	val := parsedRec.Get(fld)
+	if val == nil {
+		log.Println("parsedRecGetStr - fld not found", fld)
+		return ""
+	}
 	strBytes, err := val.StringBytes()
 	if err != nil || strBytes == nil {
 		log.Println("parsedRecGetStr error - ", fld, err)
 		return ""
 	}
 	strVal := string(strBytes)
-	if len(toLower) > 0 && toLower[0] {
-		return strings.ToLower(strVal)
+	if len(option) > 0 {
+		if option[0] == StrToLower {
+			return strings.ToLower(strVal)
+		}
+		if option[0] == StrToPlain {
+			return PlainString(strVal)
+		}
 	}
 	return strVal
 }
@@ -31,6 +89,10 @@ func parsedRecGetStr(parsedRec *fastjson.Value, fld string, toLower ...bool) str
 // parsedRecGetInt returns the int value for specified fld.
 func parsedRecGetInt(parsedRec *fastjson.Value, fld string) int {
 	val := parsedRec.Get(fld)
+	if val == nil {
+		log.Println("parsedRecGetInt - fld not found", fld)
+		return 0
+	}
 	intVal, err := val.Int()
 	if err != nil {
 		log.Println("parsedRecGetInt error - ", fld, err)
