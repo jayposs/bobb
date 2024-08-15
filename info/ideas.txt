@@ -1,0 +1,8 @@
+Ideas for New Features or changes
+
+IndexRecs request  
+    Bkt, IndexBkt, RecIds, Flds composing index (type FldFormat)
+    Index records are created and loaded to index bkt for specified data records
+
+IndexSearch request
+    Search index record keys for specified value returning data rec keys    
