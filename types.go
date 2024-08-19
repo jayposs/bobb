@@ -38,6 +38,7 @@ type GetRequest struct {
 // If start/end keys are specified, a cursor is used to establish a starting point and then reads sequentially.
 // A subset of bkt records can be retrieved very quickly.
 // Records are returned in key order.
+// If StartKey == EndKey, rec key prefix must match StartKey.
 type GetAllRequest struct {
 	BktName  string `json:"bktName"`
 	StartKey string `json:"startKey"` // if not "", keys >= this value
@@ -48,6 +49,7 @@ type GetAllRequest struct {
 // GetAllKeys works same as GetAll except only the key values are returned.
 // Keys are returned in the Response.Recs.
 // Receiving app may need to convert each key in Resp.Recs from []byte to string.
+// If StartKey == EndKey, rec key prefix must match StartKey.
 type GetAllKeysRequest struct {
 	BktName  string `json:"bktName"`
 	StartKey string `json:"startKey"` // if not "", keys >= this value
@@ -68,6 +70,7 @@ type GetOneRequest struct {
 // If StartKey = "", reads from beginning. If EndKey = "" reads to end.
 // Value of index record (key of data record) is used to Get record from data bkt.
 // Records are returned in index key order.
+// If StartKey == EndKey, rec key prefix must match StartKey.
 type GetIndexRequest struct {
 	BktName  string `json:"bktName"`  // where data records are located
 	IndexBkt string `json:"indexBkt"` // name of bkt used as index

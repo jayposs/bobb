@@ -91,6 +91,12 @@ Optional field check on put requests. Misc other changes.
 * indexloader/indexloader.go - use new func MergeFlds to create index keys
 * stress/stress.go - new program for stress testing
 
--- Aug 14, 2024
+-- Aug 14, 2024 -------------------------------------------------------------
 
 * view_handlers.go - change Export func to write directly to file rather than to buffer first.
+
+-- Aug 19, 2024 -------------------------------------------------------------
+
+    if StartKey == EndKey in request, response recs key prefix will match StartKey 
+
+* view_handers.go - change GetAll, GetAllKeys, GetIndex to use Match Prefix logic

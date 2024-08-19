@@ -55,6 +55,8 @@ range of records. Seeking to a Start key and reading from that point is very fas
 Result starts with first rec where key is >= Start key.
 Result ends with last rec where key is <= End key.
 
+If StartKey == EndKey, all records where key prefix matches StartKey are returned.
+
 -------------------------------------------------------------------------------------------------------
 SHORTCUT FUNCS 
 

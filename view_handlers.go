@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"slices"
+	"strings"
 
 	"github.com/valyala/fastjson"
 	bolt "go.etcd.io/bbolt"
@@ -96,8 +97,18 @@ func GetAll(tx *bolt.Tx, req *GetAllRequest) *Response {
 	} else {
 		k, v = csr.Seek([]byte(req.StartKey))
 	}
+
+	// if startKey == endKey, use matchPrefix logic
+	var matchPrefix bool
+	if req.StartKey != "" && req.StartKey == req.EndKey {
+		matchPrefix = true
+	}
 	for k != nil {
-		if req.EndKey != "" && string(k) > req.EndKey {
+		if matchPrefix { // all rec keys must begin with StartKey
+			if !strings.HasPrefix(string(k), req.StartKey) {
+				break
+			}
+		} else if req.EndKey != "" && string(k) > req.EndKey {
 			break
 		}
 		resp.Recs = append(resp.Recs, v)
@@ -130,8 +141,18 @@ func GetAllKeys(tx *bolt.Tx, req *GetAllKeysRequest) *Response {
 	} else {
 		k, _ = csr.Seek([]byte(req.StartKey))
 	}
+
+	// if startKey == endKey, use matchPrefix logic
+	var matchPrefix bool
+	if req.StartKey != "" && req.StartKey == req.EndKey {
+		matchPrefix = true
+	}
 	for k != nil {
-		if req.EndKey != "" && string(k) > req.EndKey {
+		if matchPrefix { // all rec keys must begin with StartKey
+			if !strings.HasPrefix(string(k), req.StartKey) {
+				break
+			}
+		} else if req.EndKey != "" && string(k) > req.EndKey {
 			break
 		}
 		resp.Recs = append(resp.Recs, k)
@@ -169,8 +190,18 @@ func GetIndex(tx *bolt.Tx, req *GetIndexRequest) *Response {
 	} else {
 		indexKey, dataKey = csr.Seek([]byte(req.StartKey))
 	}
+
+	// if startKey == endKey, use matchPrefix logic
+	var matchPrefix bool
+	if req.StartKey != "" && req.StartKey == req.EndKey {
+		matchPrefix = true
+	}
 	for indexKey != nil {
-		if req.EndKey != "" && string(indexKey) > req.EndKey {
+		if matchPrefix { // all rec keys must begin with StartKey
+			if !strings.HasPrefix(string(indexKey), req.StartKey) {
+				break
+			}
+		} else if req.EndKey != "" && string(indexKey) > req.EndKey {
 			break
 		}
 		// get value from primary bkt using key stored in index

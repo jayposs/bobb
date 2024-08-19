@@ -110,7 +110,9 @@ One potential scenario would be parent and child record buckets. The parent reco
 **Be Careful** - values used in keys should not change. This will cause complications.  
 
 ### Start / End Keys
-Bbolt can seek to a key really fast and then read sequentially in key order from that point. If the seek key is not found, the cursor is positioned at the next key. Reading continues until the record key is greater than the end key. If no start key is specified, reading begins with the first bucket record in key order. If no end key is specified, reading continues to last record in key order.  
+Bbolt can seek to a key really fast and then read sequentially in key order from that point. If the seek key is not found, the cursor is positioned at the next key. Reading continues until the record key is greater than the end key. If no start key is specified, reading begins with the first bucket record in key order. If no end key is specified, reading continues to last record in key order.    
+  
+If StartKey == EndKey, all records where key prefix matches StartKey are returned.
 
 ### Secondary Indexes  
 These are simply buckets with keys and values. The key is typically composed of 1 or more values from a data record made unique by appending a value to the end of it. The record value is the key of the data record. The developer is responsible for creating, loading, and maintaining index buckets.  
