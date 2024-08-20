@@ -603,6 +603,7 @@ func putBkts() {
 		{"00377_00005244_001", "00377_00005244", 1, "A4576", 2},
 		{"00377_00005244_002", "00377_00005244", 2, "A1721", 1},
 		{"00377_00005244_003", "00377_00005244", 3, "C1600", 5},
+		{"99999_xxxxxxxx_001", "00377_00005244", 3, "C1600", 5}, // bogus record added to test GetAll using match prefix logic
 	}
 
 	jsonOrder, _ := json.Marshal(&order1)
@@ -628,13 +629,21 @@ func putBkts() {
 		log.Fatalln("putBkts db order does not match sent order")
 	}
 
-	// verify order items in db match items sent
-	req2 := bobb.GetAllRequest{BktName: "order_item"}
+	// verify order items in db match items sent using match prefix logic in GetAll request
+	req2 := bobb.GetAllRequest{
+		BktName:  "order_item",
+		StartKey: "00377_00005244",
+		EndKey:   "00377_00005244",
+	}
 	resp2, _ := bo.Run(httpClient, bobb.OpGetAll, req2)
 
 	results2 := bo.JsonToSlice(resp2.Recs, data.OrderItem{})
-	for i, jsonRec := range results2 {
-		if items[i] != jsonRec {
+	if len(results2) != 3 {
+		log.Fatalln("putBkts db item result count should be 3, but is", len(results2))
+	}
+	for i, resultRec := range results2 {
+		log.Println(resultRec)
+		if items[i] != resultRec {
 			log.Fatalln("putBkts db item does not match sent item")
 		}
 	}

@@ -100,3 +100,4 @@ Optional field check on put requests. Misc other changes.
     if StartKey == EndKey in request, response recs key prefix will match StartKey 
 
 * view_handers.go - change GetAll, GetAllKeys, GetIndex to use Match Prefix logic
+* demo/demo.go - add logic to test match prefix logic (see putBkts func)
