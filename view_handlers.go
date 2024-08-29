@@ -113,6 +113,7 @@ func GetAll(tx *bolt.Tx, req *GetAllRequest) *Response {
 		}
 		resp.Recs = append(resp.Recs, v)
 		if len(resp.Recs) == req.Limit { // note - if limit == 0, len(resp.Recs) cannot be zero when compare is made
+			k, _ = csr.Next() // key loaded into resp.NextKey
 			break
 		}
 		k, v = csr.Next()
@@ -217,6 +218,7 @@ func GetIndex(tx *bolt.Tx, req *GetIndexRequest) *Response {
 		}
 		resp.Recs = append(resp.Recs, val)
 		if len(resp.Recs) == req.Limit { // note - if limit == 0, len(resp.Recs) cannot be zero when compare is made
+			indexKey, _ = csr.Next() // key loaded into resp.NextKey
 			break
 		}
 		indexKey, dataKey = csr.Next()
