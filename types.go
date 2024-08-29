@@ -9,6 +9,7 @@ type FldFormat struct {
 
 // Response type is returned by all db requests.
 // Individual recs must be json.Unmarshaled into appropriate type by receiver.
+// NextKey is used by GetAll and GetIndex requests when limit or EndKey is used.
 type Response struct {
 	Status  string   `json:"status"`  // constants in codes.go (StatusOk, StatusWarning, StatusFail)
 	Msg     string   `json:"msg"`     // if status is not Ok, Msg will indicate reason
@@ -16,6 +17,7 @@ type Response struct {
 	Rec     []byte   `json:"rec"`     // for requests that only return 1 record
 	PutCnt  int      `json:"putCnt"`  // number of records either added or replaced by Put operation
 	NextSeq []int    `json:"nextSeq"` // returned by bkt request with Operation = "nextseq"
+	NextKey string   `json:"nextKey"` // next key in bkt after last one returned in Recs
 }
 
 // BktRequest is used to create / delete bkt and get the auto incremented NextSequence number.
@@ -39,6 +41,7 @@ type GetRequest struct {
 // A subset of bkt records can be retrieved very quickly.
 // Records are returned in key order.
 // If StartKey == EndKey, rec key prefix must match StartKey.
+// If end of bkt not reached, response.NextKey will be next key in order.
 type GetAllRequest struct {
 	BktName  string `json:"bktName"`
 	StartKey string `json:"startKey"` // if not "", keys >= this value
@@ -71,6 +74,7 @@ type GetOneRequest struct {
 // Value of index record (key of data record) is used to Get record from data bkt.
 // Records are returned in index key order.
 // If StartKey == EndKey, rec key prefix must match StartKey.
+// If end of bkt not reached, response.NextKey will be next key in order.
 type GetIndexRequest struct {
 	BktName  string `json:"bktName"`  // where data records are located
 	IndexBkt string `json:"indexBkt"` // name of bkt used as index

@@ -117,6 +117,9 @@ func GetAll(tx *bolt.Tx, req *GetAllRequest) *Response {
 		}
 		k, v = csr.Next()
 	}
+	if k != nil {
+		resp.NextKey = string(k)
+	}
 	resp.Status = StatusOk
 	return resp
 }
@@ -217,6 +220,9 @@ func GetIndex(tx *bolt.Tx, req *GetIndexRequest) *Response {
 			break
 		}
 		indexKey, dataKey = csr.Next()
+	}
+	if indexKey != nil {
+		resp.NextKey = string(indexKey)
 	}
 	resp.Status = StatusOk
 	return resp

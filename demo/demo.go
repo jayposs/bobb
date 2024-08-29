@@ -44,7 +44,7 @@ func main() {
 	getAll()
 	putOne("102") // changes record in locationData and updates record in db
 	getOne("102") // gets updated record and verifies it matches record in locationMap
-	getAllRange("100", "102")
+	getAllRange()
 	getAllKeys()
 	qry1() // find str startsWith, sort intDesc, strAsc
 	qry2() // find str greaterthan, str contains, int equals, sort st desc, city asc
@@ -175,9 +175,11 @@ func getOne(id string) {
 
 // -- getAllRange -----------------------------------------
 // Gets all records in a range between start & end keys
-func getAllRange(start, end string) {
+func getAllRange() {
 	log.Println("-- getAllRange starting -----")
 
+	start := "100"
+	end := "102"
 	req := bobb.GetAllRequest{
 		BktName:  locationBkt,
 		StartKey: start,
@@ -194,6 +196,9 @@ func getAllRange(start, end string) {
 			continue
 		}
 		compare(original, results[id], "getAll")
+	}
+	if resp.NextKey != "103" {
+		log.Fatalln("resp.NextKey incorrect", resp.NextKey)
 	}
 	log.Println("-- getAllRange done -----")
 }
