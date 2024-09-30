@@ -102,8 +102,25 @@ Optional field check on put requests. Misc other changes.
 * view_handers.go - change GetAll, GetAllKeys, GetIndex to use Match Prefix logic
 * demo/demo.go - add logic to test match prefix logic (see putBkts func)
 
--- Aug 29, 2024 -------------------------------------------------------------
+-- Sep 30, 2024 -------------------------------------------------------------
 
     add NextKey logic, useful when breaking large requests into multiple parts
+    add StrOption field to FindCondition
+    changes to qrySort
 
-* view_handlers.go - add NextKey logic to GetAll and GetIndex requests
+* view_handlers.go 
+    add NextKey logic to GetAll and GetIndex requests
+    qrySort func 
+        changed to use PlainString version of string values for comparison
+        SortFunc reworked to reduce code size, improve efficiency
+    move some funcs to misc_handlers.go
+* updt_handlers.go  
+    move Bkt request handler func to misc_handlers.go
+* rec.go
+    parsedRecFind func
+        add StrOption logic 
+        for int comparison, set n = recVal - conditionVal (rather than using intCompare func)
+        change switch condition.Op to check for n < 0, n > 0 rather than n == -1 or n == 1
+* types.go
+    add NextKey field to Response type
+    add StrOption field to FindCondition type

@@ -34,6 +34,7 @@ func PlainString(in string) string {
 // Type FldFormat defined in types.go (FldName, FldType, Length).
 // Separator placed between each value.
 // Values are plain strings (lower case alphanumeric, special chars removed).
+// Each fld value is truncated or padded if needed to set length.
 func MergeFlds(parsedRec *fastjson.Value, flds []FldFormat, separator string) string {
 	formattedFlds := make([]string, len(flds))
 	var format string
@@ -110,12 +111,24 @@ func parsedRecFind(parsedRec *fastjson.Value, conditions []FindCondition) bool {
 		conditionMet = false
 		switch {
 		case slices.Contains(StrFindOps, condition.Op):
-			compareVal = strings.ToLower(condition.ValStr)
-			recValStr = parsedRecGetStr(parsedRec, condition.Fld, StrToLower)
-			n = strCompare(recValStr, compareVal)
+			switch condition.StrOption {
+			case "":
+				compareVal = strings.ToLower(condition.ValStr)
+				recValStr = parsedRecGetStr(parsedRec, condition.Fld, StrToLower)
+			case "plain":
+				compareVal = PlainString(condition.ValStr)
+				recValStr = parsedRecGetStr(parsedRec, condition.Fld, StrToPlain)
+			case "asis":
+				compareVal = condition.ValStr
+				recValStr = parsedRecGetStr(parsedRec, condition.Fld)
+			default:
+				log.Println("invalid FindCondition.StrOption", condition.StrOption)
+				return false
+			}
+			n = StrCompare(recValStr, compareVal)
 		case slices.Contains(IntFindOps, condition.Op):
-			recVal := parsedRecGetInt(parsedRec, condition.Fld)
-			n = intCompare(recVal, condition.ValInt)
+			recValInt := parsedRecGetInt(parsedRec, condition.Fld)
+			n = recValInt - condition.ValInt
 		default:
 			log.Println("FindCondition invalid op", condition.Op)
 			return false
@@ -126,11 +139,11 @@ func parsedRecFind(parsedRec *fastjson.Value, conditions []FindCondition) bool {
 				conditionMet = true
 			}
 		case FindLessThan, FindBefore:
-			if n == -1 {
+			if n < 0 {
 				conditionMet = true
 			}
 		case FindGreaterThan, FindAfter:
-			if n == 1 {
+			if n > 0 {
 				conditionMet = true
 			}
 		case FindStartsWith:

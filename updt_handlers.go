@@ -5,7 +5,6 @@ package bobb
 
 import (
 	"log"
-	"strings"
 
 	"github.com/valyala/fastjson"
 	bolt "go.etcd.io/bbolt"
@@ -184,57 +183,4 @@ func Delete(tx *bolt.Tx, req *DeleteRequest) (*Response, error) {
 	}
 	resp.Status = StatusOk
 	return resp, nil
-}
-
-// Bkt performs bucket requests: "create", "delete", "nextseq"
-func Bkt(tx *bolt.Tx, req *BktRequest) (*Response, error) {
-	resp := new(Response)
-
-	var err error
-	op := strings.ToLower(req.Operation)
-	switch op {
-	case "create":
-		bkt := tx.Bucket([]byte(req.BktName))
-		if bkt != nil {
-			resp.Status = StatusFail
-			resp.Msg = "bucket already exists -" + req.BktName
-			return resp, nil
-		}
-		_, err = tx.CreateBucket([]byte(req.BktName))
-	case "delete":
-		tx.DeleteBucket([]byte(req.BktName)) // NOTE - delete error is ignored
-	case "nextseq":
-		bkt := openBkt(tx, resp, req.BktName)
-		if bkt == nil {
-			return resp, nil
-		}
-		resp.NextSeq, err = bktNextSeq(bkt, req.NextSeqCount)
-	}
-	if err != nil {
-		log.Println("db error - bkt operation failed", req.Operation, req.BktName, err)
-		resp.Status = StatusFail
-		resp.Msg = "Bkt request failed, see log for details"
-		return resp, err
-	}
-	resp.Status = StatusOk
-	return resp, nil
-}
-
-func bktNextSeq(bkt *bolt.Bucket, count int) ([]int, error) {
-	if count > 100 {
-		log.Println("bktNexSeq - too many return values requested, max of 100 returned, ", count)
-		count = 100
-	}
-	if count == 0 {
-		count = 1
-	}
-	seqNumbers := make([]int, count)
-	for i := 0; i < count; i++ {
-		seqNo, err := bkt.NextSequence()
-		if err != nil {
-			return nil, err
-		}
-		seqNumbers[i] = int(seqNo)
-	}
-	return seqNumbers, nil
 }

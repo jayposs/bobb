@@ -4,11 +4,8 @@
 package bobb
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"log"
-	"os"
 	"slices"
 	"strings"
 
@@ -19,18 +16,6 @@ import (
 var DefaultQryRespSize = 400 // response slice initial allocation for this size
 
 var parserPool = new(fastjson.ParserPool)
-
-// openBkt returns pointer to bucket. Errors are logged and response is loaded with error info.
-// Both View and Update handler funcs use openBkt.
-func openBkt(tx *bolt.Tx, resp *Response, bktName string) *bolt.Bucket {
-	bkt := tx.Bucket([]byte(bktName))
-	if bkt == nil {
-		log.Println("Bkt Not Found - ", bktName)
-		resp.Status = StatusFail
-		resp.Msg = "Bkt Not Found - " + bktName
-	}
-	return bkt
-}
 
 // Get returns recs with keys matching requested keys.
 func Get(tx *bolt.Tx, req *GetRequest) *Response {
@@ -230,71 +215,6 @@ func GetIndex(tx *bolt.Tx, req *GetIndexRequest) *Response {
 	return resp
 }
 
-// Export writes bkt recs to file in formatted json.
-func Export(tx *bolt.Tx, req *ExportRequest) *Response {
-	resp := new(Response)
-	bkt := openBkt(tx, resp, req.BktName)
-	if bkt == nil {
-		return resp
-	}
-
-	exportFile, err := os.Create(req.FilePath)
-	log.Println("created exportfile")
-	if err != nil {
-		log.Println("error creating export file", req.FilePath, err)
-		resp.Status = StatusFail
-		resp.Msg = "error creating export file:" + err.Error()
-		return resp
-	}
-	csr := bkt.Cursor()
-	var k, v []byte
-	if req.StartKey == "" {
-		k, v = csr.First()
-	} else {
-		k, v = csr.Seek([]byte(req.StartKey))
-	}
-	var counter int
-	exportFile.WriteString("[\n")
-	for k != nil {
-		if req.EndKey != "" && string(k) > req.EndKey {
-			break
-		}
-		if counter > 0 {
-			exportFile.WriteString(",\n")
-		}
-		buffer := new(bytes.Buffer)
-		json.Indent(buffer, v, "", "  ")
-		exportFile.Write(buffer.Bytes())
-		counter++
-		if counter == req.Limit {
-			break
-		}
-		k, v = csr.Next()
-	}
-	exportFile.WriteString("\n]")
-	if err := exportFile.Close(); err != nil {
-		log.Println("error closing export file", err)
-		resp.Status = StatusFail
-		resp.Msg = "error closing export file" + err.Error()
-		return resp
-	}
-	resp.Status = StatusOk
-	return resp
-}
-
-// CopyDB makes a copy of the open database to the specified file path.
-func CopyDB(tx *bolt.Tx, req *CopyDBRequest) *Response {
-	resp := new(Response)
-	err := tx.CopyFile(req.FilePath, 0600)
-	if err != nil {
-		resp.Status = StatusFail
-		resp.Msg = err.Error()
-	} else {
-		resp.Status = StatusOk
-	}
-	return resp
-}
-
 // Qry returns records that meet request FindConditions and in specified sort order.
 func Qry(tx *bolt.Tx, req *QryRequest) *Response {
 	resp := new(Response)
@@ -474,7 +394,7 @@ func qrySort(sortKeys []SortKey, resultKeys []string, resultRecs map[string][]by
 	defer parserPool.Put(parser)
 
 	// extract sort values from result records
-	resultSortVals := make(map[string][]string) // rec key: []sort values (converted to string)
+	resultSortVals := make(map[string][]string) // recKey: []sort values (converted to string)
 	for recId, recVal := range resultRecs {
 		parsedRec, err := parser.ParseBytes(recVal)
 		if err != nil {
@@ -488,17 +408,82 @@ func qrySort(sortKeys []SortKey, resultKeys []string, resultRecs map[string][]by
 			sortVal := ""
 			switch sortType {
 			case "string":
-				//strBytes := parsedRec.GetStringBytes(sortKey.Fld)
-				//if strBytes == nil {
-				//	log.Println("ERROR - qrySort sort fld not found in record-", sortKey.Fld)
-				//	return nil
-				//} else {
-				//	sortVal = strings.ToLower(string(strBytes))
-				//}
-				sortVal = parsedRecGetStr(parsedRec, sortKey.Fld)
+				sortVal = parsedRecGetStr(parsedRec, sortKey.Fld, StrToPlain)
 			case "int":
 				intVal := parsedRecGetInt(parsedRec, sortKey.Fld)
-				sortVal = fmt.Sprintf("%011d", intVal) // converts 3456 to 00000003456
+				sortVal = fmt.Sprintf("%015d", intVal) // converts 3456 to 000000000003456
+			}
+			sortVals = append(sortVals, sortVal)
+		}
+		resultSortVals[recId] = sortVals
+	}
+	//for k, v := range resultSortVals {  for debugging
+	//	log.Println(k, v)
+	//}
+
+	slices.SortFunc(resultKeys, func(aKey, bKey string) int { // slices pkg added in Go 1.21
+		aRecVals := resultSortVals[aKey] // get slice of sort vals from map resultSortVals
+		bRecVals := resultSortVals[bKey]
+		var n int
+		for i := 0; i < len(sortKeys); i++ {
+			n = StrCompare(aRecVals[i], bRecVals[i])
+			if n == 0 { // sort key values are equal
+				continue
+			}
+			if sortDir[i] == "desc" {
+				n *= -1
+			}
+			break
+		}
+		return n
+	})
+	Trace("~ qry sort done ~")
+	return resultKeys
+}
+
+// ===============================================================================================
+
+// xqrySort - not used, different way to execute sort
+func xqrySort(sortKeys []SortKey, resultKeys []string, resultRecs map[string][]byte) []string {
+	Trace("~ qry sort start ~")
+
+	sortTypes := make([]string, len(sortKeys)) // store field type for each sortKey (string, int)
+	sortDir := make([]string, len(sortKeys))   // store sort direction for each sortKey (asc, desc)
+	for i, sortKey := range sortKeys {
+		switch {
+		case slices.Contains(StrSortCodes, sortKey.Dir):
+			sortTypes[i] = "string"
+		case slices.Contains(IntSortCodes, sortKey.Dir):
+			sortTypes[i] = "int"
+		default:
+			log.Println("ERROR - Invalid SortKey Dir Attribute", sortKey)
+			return nil
+		}
+		if slices.Contains(DescSortCodes, sortKey.Dir) {
+			sortDir[i] = "desc"
+		} else {
+			sortDir[i] = "asc"
+		}
+	}
+	parser := parserPool.Get()
+	defer parserPool.Put(parser)
+
+	// extract sort values from result records
+	resultSortVals := make(map[string][]any) // recKey: []sort values
+	for recId, recVal := range resultRecs {
+		parsedRec, err := parser.ParseBytes(recVal)
+		if err != nil {
+			log.Println("ERROR - qrySort failed, cannot parse result record-", err)
+			log.Println(recId, string(recVal))
+			return nil
+		}
+		sortVals := make([]any, 0, len(sortKeys))
+		var sortVal any
+		for i, sortKey := range sortKeys {
+			if sortTypes[i] == "int" {
+				sortVal = parsedRecGetInt(parsedRec, sortKey.Fld)
+			} else {
+				sortVal = parsedRecGetStr(parsedRec, sortKey.Fld, StrToPlain)
 			}
 			sortVals = append(sortVals, sortVal)
 		}
@@ -508,22 +493,29 @@ func qrySort(sortKeys []SortKey, resultKeys []string, resultRecs map[string][]by
 	//	log.Println(k, v)
 	//}
 
-	slices.SortFunc(resultKeys, func(a, b string) int { // slices pkg added in Go 1.21
-		aRecVals := resultSortVals[a]
-		bRecVals := resultSortVals[b]
+	slices.SortFunc(resultKeys, func(aKey, bKey string) int { // slices pkg added in Go 1.21
+		aRecVals := resultSortVals[aKey] // get slice of sort vals from map resultSortVals
+		bRecVals := resultSortVals[bKey]
+		var n int
 		for i := 0; i < len(sortKeys); i++ {
-			aVal := aRecVals[i]
-			bVal := bRecVals[i]
-			n := strCompare(aVal, bVal)
+			if sortTypes[i] == "int" {
+				aVal := AssertInt(aRecVals[i])
+				bVal := AssertInt(bRecVals[i])
+				n = aVal - bVal
+			} else {
+				aVal := AssertStr(aRecVals[i])
+				bVal := AssertStr(bRecVals[i])
+				n = StrCompare(aVal, bVal) // StrCompare in util.go
+			}
 			if n == 0 { // sort key values are equal
 				continue
 			}
 			if sortDir[i] == "desc" {
-				n = n * -1 // if sort direction is descending, negate return value
+				n *= -1
 			}
-			return n
+			break
 		}
-		return 0 // all sort key values are equal
+		return n
 	})
 	Trace("~ qry sort done ~")
 	return resultKeys

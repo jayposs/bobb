@@ -1,15 +1,17 @@
 package bobb
 
 // FldFormat is used by MergeFlds in rec.go, typically for creating index keys.
+// Strings - padded to right with spaces or truncated as needed.
+// Ints - leading zeros added as needed.
 type FldFormat struct {
-	FldName string `json:"fldName"`
-	FldType string `json:"fldType"` // "string, int"
-	Length  int    `json:"length"`
+	FldName string `json:"fldName"` // name of fld in record
+	FldType string `json:"fldType"` // "string" or "int"
+	Length  int    `json:"length"`  // output length of value
 }
 
 // Response type is returned by all db requests.
 // Individual recs must be json.Unmarshaled into appropriate type by receiver.
-// NextKey is used by GetAll and GetIndex requests when limit or EndKey is used.
+// NextKey is set by GetAll and GetIndex requests when limit or EndKey is used.
 type Response struct {
 	Status  string   `json:"status"`  // constants in codes.go (StatusOk, StatusWarning, StatusFail)
 	Msg     string   `json:"msg"`     // if status is not Ok, Msg will indicate reason
@@ -38,9 +40,9 @@ type GetRequest struct {
 
 // GetAllRequest returns all records in bucket or records in range between Start/End keys.
 // If start/end keys are specified, a cursor is used to establish a starting point and then reads sequentially.
-// A subset of bkt records can be retrieved very quickly.
 // Records are returned in key order.
 // If StartKey == EndKey, rec key prefix must match StartKey.
+// If StartKey = "", reads from beginning. If EndKey = "" reads to end.
 // If end of bkt not reached, response.NextKey will be next key in order.
 type GetAllRequest struct {
 	BktName  string `json:"bktName"`
@@ -85,7 +87,7 @@ type GetIndexRequest struct {
 
 // PutRequest is used to add or replace records.
 // If key exists, existing record is replaced otherwise record is added.
-// Recs must include the field to be used as the key (unique id).
+// Recs must include the KeyField to be used as the key (unique id).
 // Recs are the json marshaled value of the record type.
 // RequiredFlds (optional), fld names that must be included in recs.
 // Only top level fld names allowed.
@@ -111,7 +113,7 @@ type PutBktsRequest struct {
 }
 
 // PutOneRequest is used to add or replace a single record.
-// Rec must include the field to be used as the key (unique id).
+// Rec must include the KeyField to be used as the key (unique id).
 // Rec is the json marshaled value of the record type.
 // RequiredFlds (optional), fld names that must be included in recs.
 type PutOneRequest struct {
@@ -125,6 +127,7 @@ type PutOneRequest struct {
 // Key is typically created from value(s) in data record (must be made unique).
 // Val is key of record in data bkt.
 // If OldKey not empty, it will be deleted. No problem if it does not exist.
+// MergeFlds func in rec.go can be used to merge multiple flds together to form key.
 type IndexKeyVal struct {
 	Key    string `json:"key"`
 	Val    string `json:"val"`
@@ -132,15 +135,8 @@ type IndexKeyVal struct {
 }
 
 // PutIndexRequest is used to add or replace records in an index bkt.
-// Typically the index key value should not already exist in the index bkt.
-// If 2 keys are associated with the same value, that is likely a problem.
-// The developer is responsible for maintaining index bkts.
-// NOTE - bbolt db is very fast at reading records.
-// A secondary index may not be needed, even if requests require scanning the entire bkt.
-// Also consider if the primary data key can be designed to increase efficiency.
-// For large semi-static bkts, rebuild the entire index at scheduled times.
-// An example would be a history bkt that is only updated daily.
-// Use the Indexloader program for this purpose.
+// GetIndex and QryIndex requests use an index bkt to speed access.
+// See info/api.md for discussion on indexes.
 type PutIndexRequest struct {
 	BktName string        `json:"bktName"`
 	Indexes []IndexKeyVal `json:"indexes"`
@@ -165,39 +161,39 @@ type SortKey struct {
 }
 
 // FindCondition is used by QryRequest to define select criteria.
-// Also used by recFind() in rec.go.
-// Value of the record Fld is extracted using fastjson.
-// The Op code specifies both operation and value type (str/int).
-// Op code constants are defined in codes.go. For example,
-// FindStartsWith: includes recs where rec value starts with ValStr.
-// Only fields of type string or int are currently supported.
-// If Not is true, recs that meet find condition are excluded.
+// Each record's Fld value is compared to FindCondition value.
+// Op code specifies both operation(equals, contains, etc.) and value type (str/int).
+// Ex. FindEquals for int and FindMatches for string values.
+// See codes.go for all find op code constants.
+// If Not field set to true, recs that meet find condition are excluded.
+// StrOption - converts value to lowercase (default), "plain" (lowercase + remove non alphanumeric), "asis" (no change).
 type FindCondition struct {
-	Fld    string // field containing compare value
-	Op     string // defines match criteria
-	ValStr string // for string ops
-	ValInt int    // for int Ops
-	Not    bool   // only include records that do not meet condition
+	Fld       string // field containing compare value
+	Op        string // defines match criteria
+	ValStr    string // for string ops, this value also converted based on StrOption
+	ValInt    int    // for int Ops
+	Not       bool   // only include records that do not meet condition
+	StrOption string // "", "plain", "asis"
 }
 
 // QryRequest is used to filter and sort records.
-// Included recs must meet all FindConditions.
-// If no FindConditions, all recs included.
-// Results are returned in sorted order, if specified.
+// To be included in response.Recs, rec must meet all FindConditions.
+// If no FindConditions, all recs included, unless Limit set.
+// If specified, results are returned in SortKeys order, otherwise key order.
 // If Start/End keys are specified, only recs inside that range are compared.
+// Limit value is used before sort step.
 type QryRequest struct {
 	BktName        string          `json:"bktName"`
 	FindConditions []FindCondition `json:"findConditions"`
 	SortKeys       []SortKey       `json:"sortKeys"`
 	StartKey       string          `json:"startKey"`
 	EndKey         string          `json:"endKey"`
-	Limit          int             `json:"limit"`
+	Limit          int             `json:"limit"` // 1st limit #recs found
 }
 
 // QryIndexRequest works same as QryRequest but uses an index to speed processing.
 // The Start/End keys refer to keys in the IndexBkt.
 // Results are in index key order unless sorted.
-// For example, using an index with date based keys, the qry needs only scan records in a date range.
 type QryIndexRequest struct {
 	BktName        string          `json:"bktName"`
 	IndexBkt       string          `json:"indexBkt"`
