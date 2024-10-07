@@ -31,22 +31,29 @@ func Trace(msg string) {
 	}
 }
 
-func strCompare(a, b string) int {
+func StrCompare(a, b string) int {
+	if a == b {
+		return 0
+	}
 	if a < b {
 		return -1
 	}
-	if a > b {
-		return 1
-	}
-	return 0
+	return 1
 }
 
-func intCompare(a, b int) int {
-	if a < b {
-		return -1
+func AssertInt(val any) int {
+	if x, ok := val.(int); !ok {
+		log.Println("bad int type assertion", val)
+		return 0
+	} else {
+		return x
 	}
-	if a > b {
-		return 1
+}
+func AssertStr(val any) string {
+	if s, ok := val.(string); !ok {
+		log.Println("bad string type assertion", val)
+		return ""
+	} else {
+		return s
 	}
-	return 0
 }

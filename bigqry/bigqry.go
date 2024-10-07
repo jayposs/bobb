@@ -3,7 +3,6 @@
 package main
 
 import (
-	"encoding/json"
 	"log"
 	"net/http"
 
@@ -26,7 +25,14 @@ type Location struct {
 	LocationType int      `json:"locationType"`
 	LastActionDt string   `json:"lastActionDt"` // "yyyy-mm-dd"
 	Notes        []string `json:"notes"`
-	LocAgent     Agent    `json:"agent"`
+	A            string   `json:"a"`
+	B            string   `json:"b"`
+	C            string   `json:"c"`
+	D            string   `json:"d"`
+}
+
+func (rec Location) RecId() string {
+	return rec.Id
 }
 
 var httpClient *http.Client
@@ -40,26 +46,40 @@ func main() {
 
 	httpClient = new(http.Client)
 
+	getAllKeys("location_city_address_index")
 	qry1()
 	qry2()
 	qry3()
 	getIndex()
+	getIndex2()
 	qryIndex()
 	qryIndex2()
+	getAllMatchPrefix()
 
 	log.Println("--- bigqry pgm finished ---")
 }
 
-// qry1 returns records meeting find conditions in sorted order
+func getAllKeys(bkt string) {
+	log.Println("-- getAllKeys starting -----")
+
+	req := bobb.GetAllKeysRequest{BktName: bkt}
+	resp, _ := bo.Run(httpClient, bobb.OpGetAllKeys, req)
+	log.Println("count", len(resp.Recs))
+
+	for i := 0; i < 100; i++ {
+		log.Println(string(resp.Recs[i]))
+	}
+	log.Println("-- getAllKeys done -----")
+}
+
 func qry1() {
 	log.Println("-- qry1 starting -----")
-	criteria := []bobb.FindCondition{
-		{Fld: "zip", Op: bobb.FindStartsWith, ValStr: "5"},
-	}
-	sortKeys := []bobb.SortKey{
-		{Fld: "locationType", Dir: bobb.SortDescInt},
-		{Fld: "address", Dir: bobb.SortAscStr},
-	}
+
+	criteria := bo.Find(nil, "zip", bobb.FindStartsWith, "5")
+
+	sortKeys := bo.Sort(nil, "locationType", bobb.SortDescInt)
+	sortKeys = bo.Sort(sortKeys, "address", bobb.SortAscStr)
+
 	req := bobb.QryRequest{
 		BktName:        locationBkt,
 		FindConditions: criteria,
@@ -68,29 +88,30 @@ func qry1() {
 	resp, _ := bo.Run(httpClient, bobb.OpQry, req)
 	log.Println("count", len(resp.Recs))
 
-	results := make([]Location, len(resp.Recs))
-	for i, rec := range resp.Recs {
-		json.Unmarshal(rec, &results[i])
+	results := bo.JsonToSlice(resp.Recs, Location{})
+	for i := 0; i < 20; i++ {
+		log.Println(results[i].LocationType, results[i].Address, results[i].Zip)
 	}
-	for i := 0; i < 10; i++ {
-		log.Println(results[i])
+	for i := 20; i > 0; i-- {
+		x := len(results) - i
+		log.Println(results[x].LocationType, results[x].Address, results[x].Zip)
 	}
 	log.Println("-- qry1 done -----")
 }
 
-// qry2 returns records meeting find conditions in sorted order
 func qry2() {
 	log.Println("-- qry2 starting -----")
-	criteria := []bobb.FindCondition{
-		{Fld: "st", Op: bobb.FindAfter, ValStr: "ok"},
-		{Fld: "address", Op: bobb.FindContains, ValStr: "ave"},
-		{Fld: "locationType", Op: bobb.FindEquals, ValInt: 3},
-	}
-	sortKeys := []bobb.SortKey{
-		{Fld: "locationType", Dir: bobb.SortAscInt},
-		{Fld: "st", Dir: bobb.SortDescStr},
-		{Fld: "city", Dir: bobb.SortAscStr},
-	}
+
+	criteria := bo.Find(nil, "st", bobb.FindAfter, "ok")
+	criteria = bo.Find(criteria, "address", bobb.FindContains, "ave")
+	criteria = bo.Find(criteria, "locationType", bobb.FindEquals, 3)
+	criteria = bo.Find(criteria, "a", bobb.FindMatches, "red", bobb.FindNot)
+
+	sortKeys := bo.Sort(nil, "locationType", bobb.SortAscInt)
+	sortKeys = bo.Sort(sortKeys, "st", bobb.SortDescStr)
+	sortKeys = bo.Sort(sortKeys, "city", bobb.SortAscStr)
+	sortKeys = bo.Sort(sortKeys, "a", bobb.SortAscStr)
+
 	req := bobb.QryRequest{
 		BktName:        locationBkt,
 		FindConditions: criteria,
@@ -99,23 +120,19 @@ func qry2() {
 	resp, _ := bo.Run(httpClient, bobb.OpQry, req)
 	log.Println("count", len(resp.Recs))
 
-	results := make([]Location, len(resp.Recs))
-	for i, rec := range resp.Recs {
-		json.Unmarshal(rec, &results[i])
-	}
+	results := bo.JsonToSlice(resp.Recs, Location{})
 	for i := 0; i < 10; i++ {
 		log.Println(results[i])
 	}
 	log.Println("-- qry2 done -----")
 }
 
-// qry3 uses Not find condition
 func qry3() {
-	log.Println("-- qry3 starting -----")
-	criteria := []bobb.FindCondition{
-		{Fld: "st", Op: bobb.FindMatches, ValStr: "TN"},
-		{Fld: "locationType", Op: bobb.FindEquals, ValInt: 3, Not: true},
-	}
+	log.Println("-- qry3 starting, uses NOT condition -----")
+
+	criteria := bo.Find(nil, "st", bobb.FindMatches, "TN")
+	criteria = bo.Find(criteria, "locationType", bobb.FindEquals, 3, bobb.FindNot) // val != 3
+
 	sortKeys := []bobb.SortKey{
 		{Fld: "locationType", Dir: bobb.SortDescInt},
 		{Fld: "city", Dir: bobb.SortAscStr},
@@ -128,10 +145,7 @@ func qry3() {
 	resp, _ := bo.Run(httpClient, bobb.OpQry, req)
 	log.Println("count", len(resp.Recs))
 
-	results := make([]Location, len(resp.Recs))
-	for i, rec := range resp.Recs {
-		json.Unmarshal(rec, &results[i])
-	}
+	results := bo.JsonToSlice(resp.Recs, Location{})
 	for i := 0; i < 10; i++ {
 		log.Println(results[i])
 	}
@@ -139,26 +153,42 @@ func qry3() {
 }
 
 // getIndex uses start/end keys in index bkt to retrieve records from data bkt.
-// runs in 9ms -returns 3800 recs out of 250,000 total
 func getIndex() {
 	log.Println("-- getIndex starting -----")
 	req := bobb.GetIndexRequest{
 		BktName:  locationBkt,
-		IndexBkt: "location_zipbig_index",
-		StartKey: "5", // zip >= 50000
-		EndKey:   "6", // zip <= 60000
+		IndexBkt: "location_zip_index",
+		StartKey: "50000",
+		EndKey:   "62000",
 	}
 	resp, _ := bo.Run(httpClient, bobb.OpGetIndex, req)
 	log.Println("count", len(resp.Recs))
 
-	results := make([]Location, len(resp.Recs))
-	for i, rec := range resp.Recs {
-		json.Unmarshal(rec, &results[i])
-	}
+	results := bo.JsonToSlice(resp.Recs, Location{})
 	for i := 0; i < 10; i++ {
 		log.Println(results[i])
 	}
 	log.Println("-- getIndex done -----")
+}
+
+// getIndex2 uses start/end keys in index bkt to retrieve records from data bkt.
+// StartKey = EndKey, indicates key prefix must match StartKey.
+func getIndex2() {
+	log.Println("-- getIndex2 starting -----")
+	req := bobb.GetIndexRequest{
+		BktName:  locationBkt,
+		IndexBkt: "location_city_address_index",
+		StartKey: "abilene        |150pil",
+		EndKey:   "adams          |134commercialst",
+	}
+	resp, _ := bo.Run(httpClient, bobb.OpGetIndex, req)
+	log.Println("count", len(resp.Recs))
+
+	results := bo.JsonToSlice(resp.Recs, Location{})
+	for i := 0; i < len(results); i++ {
+		log.Println(results[i])
+	}
+	log.Println("-- getIndex2 done -----")
 }
 
 // qryIndex retrieves records using index bkt to control which records are read.
@@ -173,7 +203,7 @@ func qryIndex() {
 	}
 	req := bobb.QryIndexRequest{
 		BktName:        locationBkt,
-		IndexBkt:       "location_zipbig_index",
+		IndexBkt:       "location_zip_index",
 		StartKey:       "40000",
 		EndKey:         "69999",
 		FindConditions: criteria,
@@ -182,10 +212,7 @@ func qryIndex() {
 	resp, _ := bo.Run(httpClient, bobb.OpQryIndex, req)
 	log.Println("count", len(resp.Recs))
 
-	results := make([]Location, len(resp.Recs))
-	for i, rec := range resp.Recs {
-		json.Unmarshal(rec, &results[i])
-	}
+	results := bo.JsonToSlice(resp.Recs, Location{})
 	for i := 0; i < 10; i++ {
 		log.Println(results[i])
 	}
@@ -204,7 +231,7 @@ func qryIndex2() {
 	}
 	req := bobb.QryIndexRequest{
 		BktName:        locationBkt,
-		IndexBkt:       "location_zipbig_index",
+		IndexBkt:       "location_zip_index",
 		StartKey:       "56000",
 		EndKey:         "56999",
 		FindConditions: criteria,
@@ -213,12 +240,27 @@ func qryIndex2() {
 	resp, _ := bo.Run(httpClient, bobb.OpQryIndex, req)
 	log.Println("count", len(resp.Recs))
 
-	results := make([]Location, len(resp.Recs))
-	for i, rec := range resp.Recs {
-		json.Unmarshal(rec, &results[i])
-	}
+	results := bo.JsonToSlice(resp.Recs, Location{})
 	for i := 0; i < 10; i++ {
 		log.Println(results[i])
 	}
 	log.Println("-- qryIndex2 done -----")
+}
+
+func getAllMatchPrefix() {
+	log.Println("-- getAllMatchPrefix starting -----")
+
+	req := bobb.GetAllRequest{
+		BktName:  locationBkt,
+		StartKey: "ABI",
+		EndKey:   "ABI",
+	}
+	resp, _ := bo.Run(httpClient, bobb.OpGetAll, req)
+	log.Println("count", len(resp.Recs))
+
+	results := bo.JsonToSlice(resp.Recs, Location{})
+	for i := 0; i < len(results); i++ {
+		log.Println(results[i])
+	}
+	log.Println("-- getAllMatchPrefix done -----")
 }

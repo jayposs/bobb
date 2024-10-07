@@ -70,6 +70,7 @@ func DeleteBkt(httpClient *http.Client, bktName string) {
 // First parm is the slice of conditions to which entry will be appended.
 // If nil, a new slice will be created.
 // To set parm notCondition, use bobb.FindNot constant in call.
+// Depending on find op code, either ValInt or ValStr will be loaded with val.
 func Find(conditions []bobb.FindCondition, fld, op string, val any, notCondition ...bool) []bobb.FindCondition {
 	if conditions == nil {
 		conditions = make([]bobb.FindCondition, 0, 9)

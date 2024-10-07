@@ -37,18 +37,21 @@ func main() {
 	loadLocationData("location_data.json") // load test data from json file into locationData map
 
 	bo.DeleteBkt(httpClient, locationBkt) // using shortcut func in client pkg
-	bo.CreateBkt(httpClient, locationBkt)
+	//bo.CreateBkt(httpClient, locationBkt)
 
 	put()
 	get("100", "102", "999")
 	getAll()
 	putOne("102") // changes record in locationData and updates record in db
 	getOne("102") // gets updated record and verifies it matches record in locationMap
+	putOneLog()   // adds record to location_log bkt
 	getAllRange()
 	getAllKeys()
+	getAllLimit()
 	qry1() // find str startsWith, sort intDesc, strAsc
 	qry2() // find str greaterthan, str contains, int equals, sort st desc, city asc
 	qry3() // uses Not condition
+	qry4() // uses StrOption
 	putIndex()
 	updateIndex()
 	getIndex()
@@ -59,7 +62,10 @@ func main() {
 	export()
 	copyDB()
 	putBkts() // new feature added May 1, 2024
+
+	// ---- experimental requests, see experimental.go ------------------------
 	getValues()
+	searchKeys()
 
 	log.Println("*** Demo Pgm Finished Successfully ***")
 }
@@ -156,6 +162,40 @@ func putOne(id string) {
 	log.Println("-- putOne done -----")
 }
 
+// -- putOneLog -------------------------------------
+// Puts a single record with logging.
+func putOneLog() {
+	log.Println("-- putOneLog starting -----")
+
+	logBkt := locationBkt + "_log"
+	bo.CreateBkt(httpClient, logBkt)
+	defer bo.DeleteBkt(httpClient, logBkt)
+
+	rec := data.Location{Id: "LogTest1", Address: "345 Doodle Way"}
+	jsonRec, _ := json.Marshal(rec)
+	req := bobb.PutOneRequest{
+		BktName:  locationBkt,
+		KeyField: "id",
+		Rec:      jsonRec,
+		LogPut:   true,
+	}
+	resp, err := bo.Run(httpClient, bobb.OpPutOne, req)
+	checkResp(resp, err, "putOneLog")
+
+	var logRec data.Location
+	logKey := "LogTest1|" + time.Now().Format(time.DateTime) // requires timestamp to match to the second
+	bo.GetOne(httpClient, logBkt, logKey, &logRec)
+	log.Println(logRec)
+	if logRec.Address != rec.Address {
+		log.Fatalln("putOneLog failed")
+	}
+	req2 := bobb.DeleteRequest{BktName: locationBkt, Keys: []string{"LogTest1"}}
+	resp, err = bo.Run(httpClient, bobb.OpDelete, req2)
+	checkResp(resp, err, "putOneLog delete")
+
+	log.Println("-- putOneLog done -----")
+}
+
 // -- getOne ---------------------------------------
 // Retrieves a single record by key.
 func getOne(id string) {
@@ -233,6 +273,23 @@ func getAllKeys() {
 		log.Fatalln("compare keys failed", "getAllKeys")
 	}
 	log.Println("-- getAllKeys done -----")
+}
+
+// -- getAllLimit -----------------------------------------
+func getAllLimit() {
+	log.Println("-- getAllLimit starting -----")
+
+	req := bobb.GetAllRequest{BktName: locationBkt, Limit: 5}
+	resp, err := bo.Run(httpClient, bobb.OpGetAll, req)
+	checkResp(resp, err, "getAllLimit")
+
+	if len(resp.Recs) != 5 {
+		log.Fatalln("getAllLimit wrong number of recs returned", len(resp.Recs))
+	}
+	if resp.NextKey != "999" {
+		log.Fatalln("getAllLimit resp.NextKey incorrect", resp.NextKey)
+	}
+	log.Println("-- getAllLimit done -----")
 }
 
 // -- qry1 --------------------------------------
@@ -354,6 +411,37 @@ func qry3() {
 		compare(original, result, "qry3")
 	}
 	log.Println("-- qry3 done -----")
+}
+
+// -- qry4 ----------------------------
+// Uses StrOption
+func qry4() {
+	log.Println("-- qry4 starting -----")
+
+	criteria := []bobb.FindCondition{
+		{Fld: "st", Op: bobb.FindMatches, ValStr: "Ok", StrOption: "asis"},
+	}
+	req := bobb.QryRequest{
+		BktName:        locationBkt,
+		FindConditions: criteria,
+	}
+	resp, _ := bo.Run(httpClient, bobb.OpQry, req)
+	if len(resp.Recs) != 0 {
+		log.Fatalln("qry4 no resp.Recs should be returned")
+	}
+	criteria = []bobb.FindCondition{
+		{Fld: "st", Op: bobb.FindMatches, ValStr: "OK", StrOption: "asis"},
+		{Fld: "address", Op: bobb.FindMatches, ValStr: "101 green rd", StrOption: "plain"},
+	}
+	req.FindConditions = criteria
+	resp, _ = bo.Run(httpClient, bobb.OpQry, req)
+	results := bo.JsonToSlice(resp.Recs, data.Location{}) // convert resp recs to slice of Location recs
+	log.Println("qry4", results)
+
+	if !(len(results) == 1 && results[0].Id == "101") {
+		log.Fatalln("qry4 results incorrect")
+	}
+	log.Println("-- qry4 done -----")
 }
 
 // -- putIndex -----------------------------------------------
@@ -595,9 +683,9 @@ func putBkts() {
 	log.Println("-- putBkts starting -----")
 
 	bo.DeleteBkt(httpClient, "order")
-	bo.CreateBkt(httpClient, "order")
+	//bo.CreateBkt(httpClient, "order")  bkt auto created
 	bo.DeleteBkt(httpClient, "order_item")
-	bo.CreateBkt(httpClient, "order_item")
+	//bo.CreateBkt(httpClient, "order_item")  bkt auto created
 
 	var order1 = data.Order{
 		Id:         "00377_00005244",
@@ -710,6 +798,46 @@ func getValues() {
 	}
 
 	log.Println("-- getValues done -----")
+}
+
+func searchKeys() {
+	log.Println("-- searchKeys starting -----")
+
+	testBkt := "test1"
+	bo.CreateBkt(httpClient, testBkt)
+	defer bo.DeleteBkt(httpClient, testBkt)
+
+	recs := []data.Location{
+		{Id: "ca|angelrock  |4800billst", St: "CA", City: "Angel Rock", Address: "4800 Bill St"},
+		{Id: "fl|watertown  |120phillips", St: "FL", City: "Watertown", Address: "120 Phillips"},
+		{Id: "ca|angelflow  |1008linkwood", St: "CA", City: "Angelflow", Address: "1008 Linkwood"},
+		{Id: "tx|deeks      |600rewdave", St: "TX", City: "Deeks", Address: "600 Rewd Ave"},
+		{Id: "ca|beeton     |976langlyway", St: "CA", City: "Beeton", Address: "976 Langly Way"},
+	}
+	jsonRecs := bo.SliceToJson(recs)
+	req := bobb.PutRequest{
+		BktName:  testBkt,
+		KeyField: "id",
+		Recs:     jsonRecs,
+	}
+	bo.Run(httpClient, bobb.OpPut, req)
+
+	// find recs where key starts with "ca" and contains "angel"
+	req2 := bobb.SearchKeysRequest{
+		BktName:     testBkt,
+		SearchValue: "angel",
+		StartKey:    "ca",
+		EndKey:      "ca",
+	}
+	resp, _ := bo.Run(httpClient, bobb.OpSearchKeys, req2)
+	if len(resp.Recs) != 2 {
+		log.Fatalln("SearchKeys failed\n", resp)
+	}
+	respRecs := bo.JsonToSlice(resp.Recs, data.Location{})
+	if respRecs[0].City != "Angelflow" && respRecs[1].City != "Angel Rock" {
+		log.Fatalln("SearchKeys failed", respRecs)
+	}
+	log.Println("-- searchKeys done -----")
 }
 
 // --------------------------------------------------------------

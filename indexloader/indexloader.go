@@ -60,13 +60,20 @@ func main() {
 
 	createIndexBkt(request.IndexBkt)
 
-	dataRecs := getDataRecs(request.DataBkt)
-
 	indexes := make([]bobb.IndexKeyVal, 0, batchSize)
 
 	wg := new(sync.WaitGroup)
 
-	for i, rec := range dataRecs {
+	// *** WARNING ***
+	// ALL RECORDS ARE RETURNED IN 1 REQUEST
+	// FOR VERY LARGE BKTS, A MULTI REQUEST PROCESS USING REQUEST.LIMIT AND RESPONSE.NEXTKEY MAY BE NEEDED
+
+	req := bobb.GetAllRequest{BktName: request.DataBkt}
+	resp, err := bo.Run(httpClient, "getall", req)
+	checkResp(resp, err)
+	log.Println("dataBkt count", len(resp.Recs))
+
+	for i, rec := range resp.Recs {
 		parsedRec, err := jsonParser.ParseBytes(rec)
 		if err != nil {
 			log.Fatalf("cannot parse json: %s", err)
@@ -78,7 +85,7 @@ func main() {
 		indexKey += "|" + strconv.Itoa(i)                            // make unique
 		indexes = append(indexes, bobb.IndexKeyVal{Key: indexKey, Val: dataKey})
 
-		if i < 100 {
+		if i < 100 { // used to visually verify index keys look as expected
 			log.Println(indexKey)
 		}
 
@@ -99,23 +106,16 @@ func main() {
 	log.Println("indexloader complete")
 }
 
+// run executes PutIndex request
 func run(bkt string, indexes []bobb.IndexKeyVal, wg *sync.WaitGroup) {
 	defer wg.Done()
 	req := bobb.PutIndexRequest{
 		BktName: bkt,
 		Indexes: indexes,
 	}
-	resp, err := bo.Run(httpClient, "putindex", req)
+	resp, err := bo.Run(httpClient, bobb.OpPutIndex, req)
 	checkResp(resp, err)
 	log.Println("batch complete")
-}
-
-func getDataRecs(dataBkt string) [][]byte {
-	req := bobb.GetAllRequest{BktName: dataBkt}
-	resp, err := bo.Run(httpClient, "getall", req)
-	checkResp(resp, err)
-	log.Println("dataBkt count", len(resp.Recs))
-	return resp.Recs
 }
 
 func getRequestSettings(indexName string) IndexSetting {
