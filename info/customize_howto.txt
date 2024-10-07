@@ -1,0 +1,22 @@
+How To Add/Change Features 
+
+1. Add/Change request type
+    See types.go 
+    Add your new types to a separate file (ex. my_types.go)
+2. Add/Change request handler
+    See view_handlers.go and updt_handlers.go
+    Add your new handler funcs to a separate file (ex. my_handlers.go)
+3. Add url routing to server/bobb_server.go
+    Create a separate section for your routes 
+4. Add request case logic to dbHandler func in server/bobb_server.go
+    Create a separate section for your case logic 
+5. Add request op code
+    See codes.go
+    Add your op codes and other codes to a separate file (ex. my_codes.go)           
+
+If changing functionality of existing request handler, create new request
+that starts with copy of current handler, rather than changing current func. 
+
+When cloning new version of bobb:
+    add your files to new version
+    add your changes to bobb_server.go

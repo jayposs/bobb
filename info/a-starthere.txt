@@ -12,8 +12,10 @@ Review the following files to gain an understanding of how bobb works.
 * client/client.go - used by Go apps to send/receive requests/responses with running server
 * types.go - response type and all request types, used by server and clients
 * codes.go - status, request operation, find, and sort code constants
-* view_handlers.go - funcs for all bolt view (read) transactions
-* updt_handlers.go - funcs for all bolt update transactions
+* view_handlers.go - funcs for bolt view (read) transactions
+* updt_handlers.go - funcs for bolt update transactions
+* misc_handlers.go - funcs for Bkt, Export, CopyDB requests
+* rec.go - single rec funcs used by handlers 
 
 Use bobb as a starting point for your own module.
 Check file info/changelog.txt to track changes that you may or may not want.

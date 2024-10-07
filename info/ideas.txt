@@ -1,8 +1,21 @@
-Ideas for New Features or changes
+IDEAS
 
-IndexRecs request  
-    Bkt, IndexBkt, RecIds, Flds composing index (type FldFormat)
-    Index records are created and loaded to index bkt for specified data records
+IndexRecs Request 
+    Create index records for specific existing data records
+    Request flds: Bkt, IndexBkt, RecIds, Flds composing index (see type FldFormat)
 
-IndexSearch request
-    Search index record keys for specified value returning data rec keys    
+Add index_settings.json filepath to bobb_settings.json
+    Make use of index defs in index requests in some way ?
+
+SetRequest 
+    updates specific fields in a record   
+
+JoinRequest
+    loads values from related bkt (using primary key only)
+    fields must exist in the primary bkt records
+
+CopyBktsRequest
+    copy bkts from 1 database to another
+    create new db with subset of bkts or add to existing db
+    copy all bkts as way to compact db
+        

@@ -1,30 +1,37 @@
-## Bobb - Small, Simple, Fast Data Tool Built On [bbolt](https://github.com/etcd-io/bbolt)
+## Bobb - Small, Simple, Fast JSON Data Tool Built On [bbolt](https://github.com/etcd-io/bbolt)
 
 ### Motivation 
 I wanted a database that was simple to setup and easy to understand. Most popular databases are pretty scary to manage yourself. Services are expensive and have other issues.  
 
 ### Information Files 
-See info folder for information files: changelog.txt, install.txt, linux_notes.txt. etc.  
+See info folder for information files: api.md, changelog.txt, install.txt, linux_notes.txt. etc.  
 
 ### Overview
-Bobb uses bbolt (fork of bolt db) for all the dirty work. Bbolt is a Go based key/value store that is screaming fast when it comes to reading data, but very minimalistic. It is an embedded db which means it runs as part of the main Go program accessing the db. Only 1 program can access the database file at a time.
+Bobb uses bbolt (fork of bolt db) for all the dirty work. Bolt is a Go based key-value store that is screaming fast when it comes to reading data, but very minimalistic. It is an embedded db which means it runs as part of the main Go program accessing the db. Only 1 program can access the database file at a time.
   
-Bobb is a thin layer on top of bbolt adding the following features:    
+Bobb is a thin layer on top of bolt adding the following features:    
 * Multiple programs can send requests to the bobb server 
 * Simple but powerful API
 * Ability to query for records meeting conditions and sorting results
 * Secondary indexes to speed access  
 
-Also kudos to Go package [fastjson](https://pkg.go.dev/github.com/valyala/fastjson) which greatly simplified and reduced coding for Bobb.
+Also kudos to Go package [fastjson](https://pkg.go.dev/github.com/valyala/fastjson) which greatly simplified coding for Bobb.
 
 It is recommended to review the [bbolt documentation](https://pkg.go.dev/go.etcd.io/bbolt#section-readme).  
 Note - Bobb does not work with nested buckets.  
+
+**Warning On Memory Use and File Size**
 ```
-Generally speaking, Bobb does not try to minimize memory use.
+Generally speaking, bobb does not try to minimize memory use.
 Results are stored in memory before being returned.
-There are no paging or iterating features. By using start/end keys, a subset of full results can be returned.
+There are no paging or iterating features. By using StartKey / EndKey or Limit, a subset of full results can be returned.
+ 
+The Results.NextKey value can be used as the StartKey for the next transaction.
 
 If you have simultaneous requests with large results, a large amount of memory will be used.
+
+Database file size can become quite large.
+Bbolt has a compact function, but not currently implemented by bobb.
 ```
 **Process Flow**  
 1. Client sends http request to running server using bobb/client Run() func
@@ -32,7 +39,7 @@ If you have simultaneous requests with large results, a large amount of memory w
 3. DB handler func creates response which is returned to client  
 
 **Transactions**  
-All requests are done inside a bbolt transaction. Updates will be rolled back if a database error occurs. Updates are committed when a transaction completes successfully.
+All requests are done inside a bolt transaction. Updates will be rolled back if a database error occurs. Updates are committed when a transaction completes successfully.
 
 ## API
 
@@ -58,12 +65,13 @@ type Response struct {
 	Rec     []byte   `json:"rec"`     // result when only 1 rec can be returned
 	PutCnt  int      `json:"putCnt"`  // for Put operations
 	NextSeq []int    `json:"nextSeq"` // see Bkt request "nextseq"
+	NextKey string   `json:"nextKey"` // next key in bkt after last one returned in Recs
 }
 ```
 
 The db server program receives http requests from client progams and calls the appropriate handler. Result records are returned as slice of bytes ([]byte). They must each be json.Unmarshalled into the appropriate record struct type. See demo program for examples.   
 
-### API Requests
+### API Requests (see info/api.txt)
 * Get - get multiple records using record keys
 * GetOne - get a single record using record key
 * GetAll - get all records in a bkt or all in key range
@@ -71,7 +79,7 @@ The db server program receives http requests from client progams and calls the a
 * GetIndex - works like GetAll but uses index bkt to speed processing
 * Put - put multiple records
 * PutBkts (added May 3, 2024) - put records to 2 buckets in a single transaction
-* PutOne - put a single record
+* PutOne - put a single record, includes option to log updates
 * PutIndex - put records into an index bucket
 * Qry - return records meeting selection criteria in sorted order
 * QryIndex - uses index bkt to speed processing
@@ -103,16 +111,16 @@ Record values are the result of json.Marshalling so they can be complex structs 
 ### Data Record Keys 
 Bobb requires all keys be string values. They are converted to []byte by Put request.  
 
-Often the "primary" key of a database record is just a random unique value (ex. uuid). With bbolt, that may not be the best choice. To assist with generating unique keys, there is an API "Bkt" request that returns auto incrementing next sequence number(s) for a bucket.  
+Often the "primary" key of a database record is just a random unique value (ex. uuid). With bolt, that may not be the best choice. To assist with generating unique keys, there is an API "Bkt" request that returns auto incrementing next sequence number(s) for a bucket.  
 
 One potential scenario would be parent and child record buckets. The parent record keys might be prefixed with a client key or transaction date and end with the bkt nextseq value. The child record keys might be prefixed with the parent key and suffixed with item number. In this example, child records for a particular parent can be accessed very quickly.
 
 **Be Careful** - values used in keys should not change. This will cause complications.  
 
 ### Start / End Keys
-Bbolt can seek to a key really fast and then read sequentially in key order from that point. If the seek key is not found, the cursor is positioned at the next key. Reading continues until the record key is greater than the end key. If no start key is specified, reading begins with the first bucket record in key order. If no end key is specified, reading continues to last record in key order.    
+Bolt can seek to a key really fast and then read sequentially in key order from that point. If the seek key is not found, the cursor is positioned at the next key. Reading continues until the record key is greater than the end key. If no start key is specified, reading begins with the first bucket record in key order. If no end key is specified, reading continues to last record in key order.    
   
-If StartKey == EndKey, all records where key prefix matches StartKey are returned.
+**Using a key prefix >**  set EndKey = StartKey, all records where key prefix matches StartKey are returned.
 
 ### Secondary Indexes  
 These are simply buckets with keys and values. The key is typically composed of 1 or more values from a data record made unique by appending a value to the end of it. The record value is the key of the data record. The developer is responsible for creating, loading, and maintaining index buckets.  
@@ -131,7 +139,7 @@ Records are read sequentially from the index bucket beginning at the start key a
 If start/end keys are not specified, all data records are read in index key order. Result records are also returned in this order unless sort order is specified in a QryIndex request.  
 
 ### Put Logic
-Most higher function databases have separate logic for adding, updating, and replacing records. Bbolt just uses Put, which either completely replaces or adds a record depending on the existence of the key or not. Bobb doesn't add additional logic to compensate for this loss of functionality.
+Most higher function databases have separate logic for adding, updating, and replacing records. Bolt just uses Put, which either completely replaces or adds a record depending on the existence of the key or not. Bobb doesn't add additional logic to compensate for this loss of functionality.
 
 See demo program "update" func for an example solution to this problem.
 
@@ -151,21 +159,24 @@ See demo program "update" func for an example solution to this problem.
     * used by both client and bobb server programs
 * codes.go - various codes
     * used by both client and bobb server programs
+    * Request operation codes
     * Response status codes
     * Qry sorting codes
     * Qry find condition codes
 * view_handlers.go - read only transactions
     * All use bolt db.View transaction
-    * Get, GetOne, GetAll, GetIndex, Qry, ...
-    * Also the openBkt func used by all request handlers
+    * Get, GetOne, GetAll, GetIndex, Qry
 * updt_handlers.go - update transactions
     * All use bolt db.Update transaction
-    * Put, PutOne, PutIndex, Delete, Bkt
+    * Put, PutOne, PutIndex, PutBkts, Delete
+* misc_handlers.go - misc transactions
     * Bkt func performs multiple operations (create, delete, nextseq)
+    * Export - export to formatted .json file
+    * CopyDB - copy db to another file
 * rec.go - support funcs used by various request handlers
-    * Utilizing fastjson, values are pulled from record values ([]byte) 
-    * recGetStr, recGetInt 
-    * recFind determines if a record meets qry find conditions
+    * funcs perform operations on single record
+    * utilizing fastjson, values are pulled from parsed records
+    * parsedRecFind determines if a record meets qry find conditions
 * util.go - misc funcs, types    
 * indexloader/indexloader.go - stand alone program
     * bulk loads secondary index bucket
@@ -173,7 +184,7 @@ See demo program "update" func for an example solution to this problem.
     * index bkt is deleted, created, loaded (for safety, index bkt name must include "index")
     * run command flag specifies which index to create  
     * see index_settings.json for example  
-    * sends PutIndex requests to bobb server in batches (using goroutines/sync.WaitGroups)  
+    * sends PutIndex requests to bobb server in batches, using goroutines 
 * demo/demo.go - demo + testing program 
 * bulkloader/bulkloader.go - example record loader using batches 
 * linux_notes.txt - for running server in background       
@@ -210,14 +221,18 @@ require (
 )
 
 ```
-   
+Inside the Go programs add following import lines:
+```
+    import "bobb"
+	import bo "bobb/client"
+```   
 NOTE  
 If server not using same port as in client.BaseURL, client program must change client.BaseURL to use same port as server.
 
 Client programs send http requests to the bobb db server using the Run() function located in the client package. The db server program must be running, listening for requests.  
   
 File bobb_settings.json specifies various settings such as db file path and listening port. 
-If the bbolt database file specified in settings does not exist, a new database file will be created.  
+If the bolt database file specified in settings does not exist, a new database file will be created.  
 
 By default, the server pgm looks for bobb_settings.json in same dir as running server.
 To change location, add -settings cmd line argument when starting server. 
@@ -246,6 +261,6 @@ The CopyDB request copies the open db file to another filepath. This request sho
 * Freedom - managed service may limit what you can do with the db 
 * Storage - use redundant block storage rather than local hd (most cloud providers offer)
 
-An approach is to have multiple data tools. One geared for transactional and batch processing (Bobb). Another for reporting and data analysis (Snowflake).
+An approach is to have multiple data tools. One geared for transactional and batch processing (bobb). Another for reporting and data analysis (Snowflake).
 
   

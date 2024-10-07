@@ -124,3 +124,16 @@ Optional field check on put requests. Misc other changes.
 * types.go
     add NextKey field to Response type
     add StrOption field to FindCondition type
+
+-- Oct 7, 2024 -----------------------------------------------------------
+    
+    add option to write changes to log bucket, providing point in time values
+    add CreateIfNotExists option to openBkt
+
+* types.go - add LogPut option to PutOneRequest
+* updt_handlers.go
+*   add CreateIfNotExists option to openBkt calls
+*   add LogPut logic to PutOne func
+* misc_handlers.go - add createIfNotExists option to openBkt func
+* experimental.go - add SearchKey
+* bobb_server.go - add SearchKey request routing
