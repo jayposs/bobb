@@ -116,11 +116,14 @@ type PutBktsRequest struct {
 // Rec must include the KeyField to be used as the key (unique id).
 // Rec is the json marshaled value of the record type.
 // RequiredFlds (optional), fld names that must be included in recs.
+// LogPut indicates to put record to bktname_putlog bkt.
+// Key is dataKey|timestamp. Value is Rec. Provides point in time values.
 type PutOneRequest struct {
 	BktName      string   `json:"bktName"`
 	KeyField     string   `json:"keyField"`     // field in Rec containing value to be used as key
 	Rec          []byte   `json:"rec"`          // record to be added or replaced in db
 	RequiredFlds []string `json:"requiredFlds"` // recs must include these fields (optional)
+	LogPut       bool     `json:"logPut"`       // if true, write record to bktname_putlog bkt
 }
 
 // IndexKeyVal type is used by PutIndexRequest.

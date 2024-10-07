@@ -5,6 +5,7 @@ package bobb
 
 import (
 	"log"
+	"time"
 
 	"github.com/valyala/fastjson"
 	bolt "go.etcd.io/bbolt"
@@ -39,6 +40,17 @@ func putRec(bkt *bolt.Bucket, rec []byte, keyField string, parser *fastjson.Pars
 	return err
 }
 
+// putLogRec used by PutOne func to write put requests to log bkt.
+// Key appended with timestamp so point in time value can be retrieved.
+func putLogRec(bkt *bolt.Bucket, key string, rec []byte) error {
+	fullKey := key + "|" + time.Now().Format(time.DateTime)
+	err := bkt.Put([]byte(fullKey), rec)
+	if err != nil {
+		log.Println("db error - putLogRec failed", err)
+	}
+	return err
+}
+
 // Put adds or replaces records in specified bkt.
 func Put(tx *bolt.Tx, req *PutRequest) (*Response, error) {
 	resp := new(Response)
@@ -47,7 +59,7 @@ func Put(tx *bolt.Tx, req *PutRequest) (*Response, error) {
 		resp.Msg = "PutRequest.KeyField cannot be blank"
 		return resp, nil
 	}
-	bkt := openBkt(tx, resp, req.BktName)
+	bkt := openBkt(tx, resp, req.BktName, CreateIfNotExists)
 	if bkt == nil {
 		return resp, nil
 	}
@@ -75,11 +87,11 @@ func PutBkts(tx *bolt.Tx, req *PutBktsRequest) (*Response, error) {
 		resp.Msg = "PutBktsRequest.KeyField cannot be blank"
 		return resp, nil
 	}
-	bkt1 := openBkt(tx, resp, req.BktName)
+	bkt1 := openBkt(tx, resp, req.BktName, CreateIfNotExists)
 	if bkt1 == nil {
 		return resp, nil
 	}
-	bkt2 := openBkt(tx, resp, req.Bkt2Name)
+	bkt2 := openBkt(tx, resp, req.Bkt2Name, CreateIfNotExists)
 	if bkt2 == nil {
 		return resp, nil
 	}
@@ -111,6 +123,7 @@ func PutBkts(tx *bolt.Tx, req *PutBktsRequest) (*Response, error) {
 }
 
 // PutOne adds or replaces a single record.
+// Includes option to write record to log bkt.
 func PutOne(tx *bolt.Tx, req *PutOneRequest) (*Response, error) {
 	resp := new(Response)
 	if req.KeyField == "" {
@@ -118,7 +131,7 @@ func PutOne(tx *bolt.Tx, req *PutOneRequest) (*Response, error) {
 		resp.Msg = "PutOneRequest.KeyField cannot be blank"
 		return resp, nil
 	}
-	bkt := openBkt(tx, resp, req.BktName)
+	bkt := openBkt(tx, resp, req.BktName, CreateIfNotExists)
 	if bkt == nil {
 		return resp, nil
 	}
@@ -130,6 +143,19 @@ func PutOne(tx *bolt.Tx, req *PutOneRequest) (*Response, error) {
 		resp.Status = StatusFail
 		resp.Msg = "PutOne request failed, see log for details"
 		return resp, err // trans will be rolled back
+	}
+	if req.LogPut { // write record to log bkt
+		logBkt := openBkt(tx, resp, req.BktName+"_log", CreateIfNotExists)
+		if logBkt == nil {
+			return resp, nil
+		}
+		key := fastjson.GetString(req.Rec, req.KeyField)
+		err := putLogRec(logBkt, key, req.Rec)
+		if err != nil {
+			resp.Status = StatusFail
+			resp.Msg = "PutOne-LogPut request failed, see log for details"
+			return resp, err // trans will be rolled back
+		}
 	}
 	resp.PutCnt = 1
 	resp.Status = StatusOk

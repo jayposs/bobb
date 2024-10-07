@@ -3,6 +3,7 @@ package bobb
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -10,14 +11,29 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
+const CreateIfNotExists = true
+
 // openBkt returns pointer to bucket. Errors are logged and response is loaded with error info.
 // Both View and Update handler funcs use openBkt.
-func openBkt(tx *bolt.Tx, resp *Response, bktName string) *bolt.Bucket {
-	bkt := tx.Bucket([]byte(bktName))
-	if bkt == nil {
-		log.Println("Bkt Not Found - ", bktName)
-		resp.Status = StatusFail
-		resp.Msg = "Bkt Not Found - " + bktName
+// If tx is update transaction, createIfNotExists option can be used.
+func openBkt(tx *bolt.Tx, resp *Response, bktName string, createIfNotExists ...bool) *bolt.Bucket {
+	var bkt *bolt.Bucket
+	var err error
+	if len(createIfNotExists) > 0 && createIfNotExists[0] {
+		bkt, err = tx.CreateBucketIfNotExists([]byte(bktName))
+		if err != nil {
+			log.Println("Open Bkt Failed - ", bktName, err)
+			resp.Status = StatusFail
+			resp.Msg = fmt.Sprintf("Open Bkt Failed - %s - %s", bktName, err.Error())
+			return nil
+		}
+	} else {
+		bkt = tx.Bucket([]byte(bktName))
+		if bkt == nil {
+			log.Println("Open Bkt Failed - ", bktName)
+			resp.Status = StatusFail
+			resp.Msg = fmt.Sprintf("Open Bkt Failed - %s", bktName)
+		}
 	}
 	return bkt
 }
