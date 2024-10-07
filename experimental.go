@@ -105,3 +105,55 @@ func GetValues(tx *bolt.Tx, req *GetValuesRequest) *Response {
 	}
 	return resp
 }
+
+const OpSearchKeys = "searchkeys"
+
+// SearchKeys returns records where key contains search value.
+// If bkt is an index bkt, the returned value is the key of the indexed data record.
+type SearchKeysRequest struct {
+	BktName     string
+	SearchValue string
+	StartKey    string
+	EndKey      string
+	Limit       int
+}
+
+func SearchKeys(tx *bolt.Tx, req *SearchKeysRequest) *Response {
+	resp := new(Response)
+	bkt := openBkt(tx, resp, req.BktName)
+	if bkt == nil {
+		return resp
+	}
+	resp.Recs = make([][]byte, 0, DefaultQryRespSize)
+
+	csr := bkt.Cursor()
+	var k, v []byte
+	if req.StartKey == "" {
+		k, v = csr.First()
+	} else {
+		k, v = csr.Seek([]byte(req.StartKey))
+	}
+	// if startKey == endKey, use matchPrefix logic
+	var matchPrefix bool
+	if req.StartKey != "" && req.StartKey == req.EndKey {
+		matchPrefix = true
+	}
+	for k != nil {
+		if matchPrefix { // all rec keys must begin with StartKey
+			if !strings.HasPrefix(string(k), req.StartKey) {
+				break
+			}
+		} else if req.EndKey != "" && string(k) > req.EndKey {
+			break
+		}
+		if strings.Contains(string(k), req.SearchValue) {
+			resp.Recs = append(resp.Recs, v)
+			if len(resp.Recs) == req.Limit {
+				break
+			}
+		}
+		k, v = csr.Next()
+	}
+	resp.Status = StatusOk
+	return resp
+}

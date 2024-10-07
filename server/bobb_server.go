@@ -159,6 +159,10 @@ func main() {
 		dbHandler(bobb.OpGetValues, &request, w, r)
 	})
 
+	http.HandleFunc("/searchkeys", func(w http.ResponseWriter, r *http.Request) {
+		var request bobb.SearchKeysRequest
+		dbHandler(bobb.OpSearchKeys, &request, w, r)
+	})
 	// --- END REQUEST ROUTING --------------------------------------------------------------
 
 	bobb.ServerStatus.Set("running") // see util.go
@@ -247,6 +251,18 @@ func dbHandler(op string, request any, w http.ResponseWriter, r *http.Request) {
 			jsonData, jsonErr = json.Marshal(response)
 			return dbErr
 		})
+	case bobb.OpPutBkts:
+		txErr = db.Update(func(tx *bolt.Tx) error {
+			response, dbErr = bobb.PutBkts(tx, request.(*bobb.PutBktsRequest))
+			jsonData, jsonErr = json.Marshal(response)
+			return dbErr
+		})
+	case bobb.OpDelete:
+		txErr = db.Update(func(tx *bolt.Tx) error {
+			response, dbErr = bobb.Delete(tx, request.(*bobb.DeleteRequest))
+			jsonData, jsonErr = json.Marshal(response)
+			return dbErr
+		})
 
 	// *** QRY OPERATIONS - SEE VIEW_HANDLERS.GO *****************************************************
 
@@ -263,14 +279,8 @@ func dbHandler(op string, request any, w http.ResponseWriter, r *http.Request) {
 			return nil
 		})
 
-	// *** OTHER OPERATIONS *****************************************************
+	// *** OTHER OPERATIONS - SEE MISC_HANDLERS.GO ***************************************************
 
-	case bobb.OpDelete:
-		txErr = db.Update(func(tx *bolt.Tx) error {
-			response, dbErr = bobb.Delete(tx, request.(*bobb.DeleteRequest))
-			jsonData, jsonErr = json.Marshal(response)
-			return dbErr
-		})
 	case bobb.OpBkt:
 		txErr = db.Update(func(tx *bolt.Tx) error {
 			response, dbErr = bobb.Bkt(tx, request.(*bobb.BktRequest))
@@ -289,18 +299,19 @@ func dbHandler(op string, request any, w http.ResponseWriter, r *http.Request) {
 			jsonData, jsonErr = json.Marshal(response)
 			return nil
 		})
-	case bobb.OpPutBkts:
-		txErr = db.Update(func(tx *bolt.Tx) error {
-			response, dbErr = bobb.PutBkts(tx, request.(*bobb.PutBktsRequest))
-			jsonData, jsonErr = json.Marshal(response)
-			return dbErr
-		})
 
 	// *** EXPERIMENTAL OPERATIONS - SEE EXPERIMENTAL.GO *****************************************************
 
 	case bobb.OpGetValues: // GetValues is experimental request, see experimental.go
 		txErr = db.View(func(tx *bolt.Tx) error {
 			response = bobb.GetValues(tx, request.(*bobb.GetValuesRequest))
+			jsonData, jsonErr = json.Marshal(response)
+			return nil
+		})
+
+	case bobb.OpSearchKeys: // SearchKeys is experimental request, see experimental.go
+		txErr = db.View(func(tx *bolt.Tx) error {
+			response = bobb.SearchKeys(tx, request.(*bobb.SearchKeysRequest))
 			jsonData, jsonErr = json.Marshal(response)
 			return nil
 		})
