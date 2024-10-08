@@ -3,7 +3,6 @@
 package main
 
 import (
-	"encoding/json"
 	"log"
 	"net/http"
 	"time"
@@ -14,10 +13,6 @@ import (
 
 const locationBkt = "location"
 
-type Agent struct {
-	Id   int    `json:"id"`
-	Name string `json:"name"`
-}
 type Location struct {
 	Id           string   `json:"id"`
 	Address      string   `json:"address"`
@@ -33,14 +28,12 @@ type Location struct {
 	D            string   `json:"d"`
 }
 
-var httpClient *http.Client
+var httpClient = new(http.Client)
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 
 	bo.BaseURL = "http://localhost:8000/" // must be where server is listening
-
-	httpClient = new(http.Client)
 
 	log.Println("starting")
 	for i := 0; i < 10000; i++ {
@@ -48,11 +41,11 @@ func main() {
 		go qry2()
 		go qry3()
 		time.Sleep(20 * time.Millisecond)
-		getIndex()
-		qryIndex()
-		qryIndex2()
+		go getIndex()
+		go qryIndex()
+		go qryIndex2()
 		time.Sleep(1 * time.Second)
-		log.Println(i)
+		log.Println("loop", i, "done")
 	}
 	log.Println("ending")
 }
@@ -72,11 +65,7 @@ func qry1() {
 		SortKeys:       sortKeys,
 	}
 	resp, _ := bo.Run(httpClient, bobb.OpQry, req)
-
-	results := make([]Location, len(resp.Recs))
-	for i, rec := range resp.Recs {
-		json.Unmarshal(rec, &results[i])
-	}
+	log.Println("qry1", len(resp.Recs))
 }
 
 // qry2 returns records meeting find conditions in sorted order
@@ -98,11 +87,7 @@ func qry2() {
 		SortKeys:       sortKeys,
 	}
 	resp, _ := bo.Run(httpClient, bobb.OpQry, req)
-
-	results := make([]Location, len(resp.Recs))
-	for i, rec := range resp.Recs {
-		json.Unmarshal(rec, &results[i])
-	}
+	log.Println("qry2", len(resp.Recs))
 }
 
 // qry3 uses Not find condition
@@ -121,32 +106,22 @@ func qry3() {
 		SortKeys:       sortKeys,
 	}
 	resp, _ := bo.Run(httpClient, bobb.OpQry, req)
-
-	results := make([]Location, len(resp.Recs))
-	for i, rec := range resp.Recs {
-		json.Unmarshal(rec, &results[i])
-	}
+	log.Println("qry3", len(resp.Recs))
 }
 
 // getIndex uses start/end keys in index bkt to retrieve records from data bkt.
-// runs in 9ms -returns 3800 recs out of 250,000 total
 func getIndex() {
 	req := bobb.GetIndexRequest{
 		BktName:  locationBkt,
-		IndexBkt: "location_zipbig_index",
-		StartKey: "5", // zip >= 50000
-		EndKey:   "6", // zip <= 60000
+		IndexBkt: "location_zip_index",
+		StartKey: "50000",
+		EndKey:   "59999",
 	}
 	resp, _ := bo.Run(httpClient, bobb.OpGetIndex, req)
-
-	results := make([]Location, len(resp.Recs))
-	for i, rec := range resp.Recs {
-		json.Unmarshal(rec, &results[i])
-	}
+	log.Println("getIndex", len(resp.Recs))
 }
 
 // qryIndex retrieves records using index bkt to control which records are read.
-// In this example, only location records where zip between 54000-59999 are scanned.
 func qryIndex() {
 	criteria := []bobb.FindCondition{
 		{Fld: "address", Op: bobb.FindContains, ValStr: "ave"},
@@ -156,18 +131,14 @@ func qryIndex() {
 	}
 	req := bobb.QryIndexRequest{
 		BktName:        locationBkt,
-		IndexBkt:       "location_zipbig_index",
+		IndexBkt:       "location_zip_index",
 		StartKey:       "40000",
 		EndKey:         "69999",
 		FindConditions: criteria,
 		SortKeys:       sortKeys,
 	}
 	resp, _ := bo.Run(httpClient, bobb.OpQryIndex, req)
-
-	results := make([]Location, len(resp.Recs))
-	for i, rec := range resp.Recs {
-		json.Unmarshal(rec, &results[i])
-	}
+	log.Println("qryIndex", len(resp.Recs))
 }
 
 // qryIndex2 retrieves records using index bkt to control which records are read.
@@ -181,16 +152,12 @@ func qryIndex2() {
 	}
 	req := bobb.QryIndexRequest{
 		BktName:        locationBkt,
-		IndexBkt:       "location_zipbig_index",
+		IndexBkt:       "location_zip_index",
 		StartKey:       "56000",
 		EndKey:         "56999",
 		FindConditions: criteria,
 		SortKeys:       sortKeys,
 	}
 	resp, _ := bo.Run(httpClient, bobb.OpQryIndex, req)
-
-	results := make([]Location, len(resp.Recs))
-	for i, rec := range resp.Recs {
-		json.Unmarshal(rec, &results[i])
-	}
+	log.Println("qryIndex2", len(resp.Recs))
 }
