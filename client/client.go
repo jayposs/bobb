@@ -3,14 +3,14 @@
 package client
 
 import (
+	"bobb"
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
+	"errors"
 	"io"
 	"log"
 	"net/http"
-
-	"bobb"
 )
 
 var BaseURL string = "http://localhost:8000/" // must match port used by server.go from bobb-settings.json
@@ -21,7 +21,10 @@ var Debug bool
 func Run(httpClient *http.Client, op string, payload interface{}) (*bobb.Response, error) {
 	reqUrl := BaseURL + op
 	jsonContent, err := json.Marshal(&payload) // -> []byte
-
+	if err != nil {
+		log.Println("client.Run, json.Marshal of payload failed", err)
+		return nil, err
+	}
 	if Debug {
 		log.Println("request url > ", reqUrl)
 		log.Println("--- client sending ---")
@@ -31,21 +34,27 @@ func Run(httpClient *http.Client, op string, payload interface{}) (*bobb.Respons
 	reqBody := bytes.NewReader(jsonContent) // -> io.Reader
 
 	req, err := http.NewRequest("POST", reqUrl, reqBody)
+	if err != nil {
+		log.Println("client.Run, http.NewRequest failed", err)
+		return nil, err
+	}
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Accept-Encoding", "gzip")
 
-	httpResp, doErr := httpClient.Do(req)
+	httpResp, err := httpClient.Do(req)
+	if err != nil {
+		log.Println("client.Run, http.Do request failed", err)
+		return nil, err
+	}
 	defer func() {
-		//if doErr == nil {
 		httpResp.Body.Close()
-		//}
 	}()
-	if httpResp.StatusCode != http.StatusOK || doErr != nil {
+	if httpResp.StatusCode != http.StatusOK {
 		log.Println("Request Failed, Status:", httpResp.Status)
 		if httpResp.StatusCode == http.StatusNotFound {
 			log.Println("verify op code specified in Run call is valid:", op, reqUrl)
 		}
-		return nil, doErr
+		return nil, errors.New("bad http response Status-" + httpResp.Status)
 	}
 
 	var result []byte
