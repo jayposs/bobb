@@ -1,0 +1,8 @@
+*.json
+*.db
+*.log
+!bobb_settings.json
+!location_data.json
+!request_data.json
+!index_settings.json
+bigqry/

@@ -1,0 +1,16 @@
+IDEAS
+
+IndexRecs Request 
+    Create index records for specific existing data records
+    Request flds: Bkt, IndexBkt, RecIds, Flds composing index (see type FldFormat)
+
+SetRequest 
+    updates specific fields in a record   
+
+Integrate JSON Schema functionality
+
+CopyBktsRequest
+    copy bkts from 1 database to another
+    create new db with subset of bkts or add to existing db
+    copy all bkts as way to compact db
+        

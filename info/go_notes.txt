@@ -1,0 +1,135 @@
+General Go Notes on Random Topics
+
+Contents
+---------
+1. Slices
+2. Money (decimal numbers)
+3. Global Variables (in multi goroutine programs)
+
+SLICES
+----------
+Data is stored in a backing fixed size array. Its size is based on the capacity value used in a "make" command.
+When a slice's array capacity is exceeded, the Go runtime will automatically allocate a new, larger backing array
+and copy the existing elements over to the new array. Slice length is the number of entries in the slice.
+
+A slice header contains a pointer to the data array, length, and capacity.
+
+When a slice is included as a func call parameter, a copy of the header is passed to the called func.
+If the called func updates the slice, but does not cause the data array to be reallocated (because it's full),
+then the calling code will see the updates made to the slice.
+If the data array is reallocated, then the calling code will not see the updates. Its header still points to
+the original array.
+
+The zero value of a slice is nil. Length of a nil slice is zero.
+var aSlice []int   // aSlice == nil
+len(aSlice) is 0
+
+Other aspects of slices are pretty easy to understand with plenty of explanations elsewhere. 
+
+Be careful when making a slice with non zero length attribute and then adding entries with append.
+The original entries (from make) will contain the types zero values and each append will increase the length. 
+
+
+MONEY (Decimal Values)
+--------------------------
+There doesn't seem to be a standard way to handle decimal values, like money, in Go.
+One solution is the shopspring/decimal pkg. It has many features and is probably a safe way to go.
+https://pkg.go.dev/github.com/shopspring/decimal#section-readme
+
+If your needs are more modest, you might look at the following solution. 
+
+1. Store and display decimal values as strings converted from float64 with fixed decimal place.
+2. Convert from string to float64 for computations.
+3. After each computation "fix" the result by calling a fixer func (see Money2, Money4 below).
+
+func Money2(amt float64) float64 { // round to 2 decimal places
+	if amt == 0 {
+		return 0
+	}
+	var intAmt int64
+	var rounder float64 = .005
+	if amt < 0 {
+		intAmt = int64((amt - rounder) * 100)
+	} else {
+		intAmt = int64((amt + rounder) * 100)
+	}
+	return float64(intAmt) / 100
+}
+
+func Money4(amt float64) float64 { // round to 4 decimal places
+	if amt == 0 {
+		return 0
+	}
+	var intAmt int64
+	var rounder float64 = .00005
+	if amt < 0 {
+		intAmt = int64((amt - rounder) * 10000)
+	} else {
+		intAmt = int64((amt + rounder) * 10000)
+	}
+	return float64(intAmt) / 10000
+}
+
+-- Sample Money Test ---------------------------------------------------------------
+
+a, _ := strconv.ParseFloat("19438.10", 64)  // convert string value stored in db to float64
+b, _ := strconv.ParseFloat(".0825", 64)
+x := a * b
+m4 := Money4(x)
+fmt.Printf("%.6f\n", x)  // 1603.643250 - original
+fmt.Printf("%.6f\n", m4) // 1603.643300 - m4 amt
+    
+var m4Tot float64
+for i := 0; i < 525000; i++ {   // 525,000 iterations
+	m4Tot = Money4(m4Tot + m4)
+}
+saveValue := strconv.FormatFloat(m4Tot, 'f', 4, 64)  // save as string with 4 decimal places
+// or
+saveValue := fmt.Sprintf("%016.4f", m4Tot)  // with leading zeros, can use value in qry find & sort
+	
+// final total = 841,912,732.5000 (1603.6433 x 525,000 exactly)
+
+// without using Money4, final total was 841,912,732.5098 (about 1 cent too high)
+
+
+GLOBAL VARS IN MULTI GOROUTINE PROGRAM
+------------------------------------------------------------------------------------
+
+In programs with multiple goroutines (such as http server), using global variables may require special
+code to prevent problems. 
+
+Use channels rather than globals to pass values between goroutines. 
+
+Some needs are better handled with a global.
+I use them for things like a server status value. Before processing a server request, the status is checked.
+The status may be changed at any time by a different goroutine.
+
+Example implementation using the type GlobalVal. Each global is an instance of this type.
+Another use case might be a global counter (int value) that has Get, Set, and Increment methods.
+
+type GlobalVal struct {
+	Lock  sync.RWMutex
+	Value string
+}
+
+func (gv *GlobalVal) Get() string {
+	gv.Lock.RLock()
+	v := gv.Value
+	gv.Lock.RUnlock()
+	return v
+}
+func (gv *GlobalVal) Set(newVal string) {
+	gv.Lock.Lock()
+	gv.Value = newVal
+	gv.Lock.Unlock()
+}
+
+var ServerStatus GlobalVal
+var TraceStatus GlobalVal
+
+currentStatus := ServerStatus.Get()
+ServerStatus.Set("shutting down")
+
+if TraceStatus.Get() == "traceon" {
+	write msg to trace log file
+}

@@ -1,0 +1,16 @@
+{
+    "dbPath": "/home/jay/data/bobb_big.db",
+    "port":   "8000",
+    "trace":  "on",
+    "logPath": "",
+    "compressResponse": false,
+    "maxErrs": 1000,
+    "comments": {
+	    "dbPath": "location & name of db file",
+	    "port": "what port server listens on",
+	    "trace":" if 'on' calls to bobb.Trace will write to log",
+	    "logPath":"if set, log output will be to this file",
+	    "compressResponse": "if true, response is compressed",
+        "maxErrs": "if req.ErrLimit is -1, use this as limit"
+    }
+}

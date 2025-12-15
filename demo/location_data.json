@@ -1,0 +1,71 @@
+[
+    {
+        "id": "100",
+        "address": "1 First Street",
+        "city": "Alpha",
+        "st": "AK",
+        "zip": "11111",
+        "locationType": 1,
+        "lastActionDt": "2021-01-01",
+        "notes": ["The first location"],
+        "agent": {"id":1,"name":"Bill"},
+        "nulltest":null
+    },  
+    {
+        "id": "101",
+        "address": "101 Green Rd.",
+        "city": "Bingo",
+        "st": "OK",
+        "zip": "35422",
+        "locationType": 1,
+        "lastActionDt": "2021-01-01",
+        "notes": ["The green location"],
+        "agent": {"id":3,"name":"Sue"},
+        "nulltest":null
+    },  
+    {
+        "id": "102",
+        "address": "102 Nomad Lane",
+        "city": "Hangover",
+        "st": "TN",
+        "zip": "54321",
+        "locationType": 2,
+        "lastActionDt": "2021-01-01",
+        "notes": ["Nomads are here"],
+        "agent": {"id":4,"name":"Ted"},
+        "nulltest":"notnull"
+    },  
+    {
+        "id": "103",
+        "address": "103 Big Way Ave",
+        "city": "Tuggville",
+        "st": "TN",
+        "zip": "54711",
+        "locationType": 2,
+        "lastActionDt": "2021-02-01",
+        "notes": ["On the big river"],
+        "nulltest":"notnull"
+    },  
+    {
+        "id": "104",
+        "address": "900 Hammer Hill Ave",
+        "city": "Anville",
+        "st": "TN",
+        "zip": "54633",
+        "locationType": 3,
+        "lastActionDt": "2021-02-01",
+        "notes": ["On the big river"],
+        "nulltest":"notnull"
+    }, 
+    {
+        "id": "999",
+        "address": "999 Last Ave",
+        "city": "Zebra",
+        "st": "WA",
+        "zip": "99999",
+        "locationType": 3,
+        "lastActionDt": "2023-12-31",
+        "notes": ["The last location"],
+        "nulltest":"notnull"
+    }        
+]

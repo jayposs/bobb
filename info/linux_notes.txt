@@ -1,0 +1,32 @@
+I'm not a Linux expert, but these commands may be useful.
+
+start pgm in background
+
+    > ./bobb_server &  (starting from binary)
+    > go run . & (starting from source)
+
+    if starting with sudo, can use:
+    > sudo -b ./bobb_server  (disown not required when exiting terminal)
+
+see background jobs
+> jobs -l
+
+bring back to foreground
+> fg %jobnumber  (ex. fg %1)
+
+send foreground process to background
+> ctrl-z  (allows command to be issued)
+> bg %jobnumber 
+
+disconnect from terminal session (keeps bg jobs running after exit)
+> disown %jobnumber    (will no longer display in jobs)
+
+to see if server is running and get process id if needed
+> ps -e | grep bobb  
+
+to normally shutdown bobb_server (ok if server disowned & running in bkgrnd)
+> cd bobb/scripts 
+> ./down.sh  (pauses 10 secs to allow any running processes to finish)
+
+to force process to end
+> kill -9 pid   (process id)

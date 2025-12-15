@@ -1,0 +1,108 @@
+Linux (Ubuntu 24) Server Setup on DigitalOcean
+
+Note - Google AI response works pretty well now and follows most of the directions below.
+
+I'm not a linux expert, so these instructions may not be the best.
+I got tired of Googling all this stuff everytime I setup a server.
+
+Directions below work for linux or osx client using terminal.
+For windows client, consider - Windows Subsystem For Linux (WSL). 
+I have not used WSL, but sounds like a good approach.
+
+This setup uses ssh with key files to login from client device to server. 
+
+1. create .ssh directory on client (if not already exists)
+    > cd ~
+    > mkdir .ssh
+    change directory persmission to 700 (read, write, execute owner only) 
+    > chmod 700 .ssh 
+    > cd .ssh  (handy to be in the .ssh directory for next steps)     
+    
+2. create SSH key file pair on client (private & public files)
+    > ssh-keygen -t ed25519 -C "comment" 
+    comment is added to end of the public key
+    use default file name or enter one that identifies key files more uniquely
+    NOTE - a passphrase is recommended, but I don't usually use one.
+    When executing utils like rsync, using a passphrase complicates things.
+    
+3. Create Droplet on DigitalOcean
+    Authentication Method - SSH Key
+    Choose "New SSH Key" - Copy/Paste Public Key (.pub) from client (created above)
+    Can use > cat keyfilename.pub to display value. Then copy it.
+    
+4. When server is created:
+    root user is setup
+    ssh public key is auto copied to /root/.ssh/authorized_keys
+
+5. login to server from client using ssh
+    > ssh root@server.ip.address -i name_of_local_private_ssh_key_file
+    example:
+    > ssh root@12.345.678.90 -i id_ed25519
+    
+You can also use the web terminal feature DigitalOcean provides.    
+    
+6. create user on server (don't want to work with root normally) 
+   using root on server
+   > adduser jimski   (note - don't use cmd useradd) 
+   > usermod -aG sudo jimski (user jimski added to sudo group for root privileges) 
+   
+I usually change path and terminal prompt settings in ~/.bashrc file
+   
+7. Add ssh public key to new user's ~/.ssh/authorized_keys file
+   You can use the ssh-copy-id command, but that may require enabling password
+   authentication on the server. Google for more info on that option. 
+
+   The following steps add ssh public key in a more manual way.
+   Should still be logged in as root on server.   
+     
+   Use su command to switch to the new user.
+   > su jimski  (enter passwd used previously to setup this user) 
+   Create .ssh dir and authorized_keys file
+   > cd ~
+   > mkdir .ssh
+   > chmod 700 .ssh
+   > cd .ssh
+   Copy ssh public key to authorized_keys file. May want to use different method. 
+   > nano authorized_keys
+   > paste public key file from client .pub file (same as step3 above)
+   > save & exit
+   > chmod 600 authorized_keys  (read/write permission for owner only)
+   > exit (switch back to root)
+   > exit (logout of server)
+
+You could also copy authorized_keys file from /root/.ssh as root user
+but would have to make sure owner is changed to new user.
+
+8. Add ssh connection info to ~/.ssh/config file on client device
+   Simplifies connecting to server from client.
+   > cd ~/.ssh
+   > nano config   (use whatever text editor is convenient)
+   > add entries for each user:server 
+     example entry
+        host server1   (use whatever you want for host identifier)
+            HostName 12.345.678.90  (ip address of server)
+            User jimski   (looks for pub key in /home/jimski/.ssh/authorized_keys)
+            IdentityFile ~/.ssh/id_ed25519  (private key file on client)
+   > save         
+
+9. Connect to server from client using entry in .ssh/config.
+   > ssh server1
+   
+Permission Levels:
+    directory .ssh - 700 (owner-rwx) 
+    private key file - 600 (owner-rw)
+    public key file - 644 (owner-rw, group-r, other-r)
+    authorized_keys - 600 (owner-rw) 
+     
+Other Steps To consider
+    setup firewall to limit ip addresses than can connect through ssh port 22
+
+Install Go
+    1. cd to dir where tar.gz file will be downloaded: ex. cd ~/downloads
+    2. download tar.gz file: wget https://golang.org/dl/go1.22.5.linux-amd64.tar.gz  (change to desired version)
+    3. remove previously installed version: sudo rm -rf /usr/local/go
+    4. install new version: sudo tar -C /usr/local -xzf go1.22.5.linux-amd64.tar.gz
+    5. add to ~/.bashrc: export PATH=$PATH:/usr/local/go/bin  (requires relogin to activate)
+
+Hopefully I got these instructions right.              
+    

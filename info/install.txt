@@ -1,0 +1,74 @@
+Install, Verify, Use Instructions 
+
+Note - I am not an expert on best ways to setup Go programs.
+The following steps worked for me using Linux system. 
+
+Bobb is not just a package to be used by other Go programs.
+It is a module with multiple packages and executable programs.
+
+Go version 1.22 or higher is required.  
+
+This process installs all source code to your local system.
+
+The clone process creates a subdirectoy called bobb inside the current directory.
+
+1. clone git repo: git clone https://github.com/jayposs/bobb.git  
+2. cd to bobb directory    
+3. run go mod tidy - should get bbolt and fastjson
+4. cd to bobb_server sub directory
+5. confirm bobb_settings.json are ok
+6. start server - go run .  (or compile and use binary)
+   verify "waiting for requests ..." is displayed    
+7. open new terminal window (or put server to background**)
+8. cd to demo sub directory   
+9. run demo pgm - go run . 
+   verify "Demo Pgm Finished Successfully" is displayed  
+   Note - port in bobb_settings.json, must match bo.BaseURL in demo.go
+   
+**To put server to background
+1. ctrl-z   (stops foreground process, allows entry of command)
+2. bg       (puts process to background)
+3. jobs -l  (shows list of running job ids preceded by job number)  
+4. fg %jobnumber (brings server back to foreground)
+see linux_notes.txt for more info    
+----------------------------------------------------------------------------------
+
+To see standard Go doc in browser, after cloning Bobb: 
+1. install godoc, if not already (google for directions)
+2. cd to bobb directory
+3. godoc -http=localhost:6060
+4. in browser, open localhost:6060
+5. under Packages, select Third party
+
+-----------------------------------------------------------------------------------
+
+CLIENT PROGRAMS (using locally installed Bobb module)
+
+Your client program modules need the following line in their module's go.mod file:
+   replace github.com/jayposs/bobb => /home/username/bobb  (location of bobb module)
+
+Example steps 
+> mkdir bobbtest
+> cd bobbtest
+> go mod init bobbtest
+add the replace line as shown below to go.mod file
+> mkdir pgm1
+> cd pgm1
+> create new program, pgm1.go, that uses bobb
+> run go mod tidy
+
+Contents of go.mod after these steps.
+
+   module bobbtest
+
+   go 1.25.0
+
+   replace github.com/jayposs/bobb => /home/jay/bobb    (change local path as needed)
+
+   require github.com/jayposs/bobb v0.0.0
+
+   require (
+      github.com/valyala/fastjson v1.6.4 // indirect
+      go.etcd.io/bbolt v1.3.8 // indirect
+      golang.org/x/sys v0.4.0 // indirect
+   )

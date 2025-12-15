@@ -1,0 +1,25 @@
+{
+    "location_zip": {
+        "dataBkt": "location",
+        "indexBkt": "location_zip_index",
+        "dataFlds": [{"fldName":"zip", "fldType":"string", "length":5}],
+        "dataIdFld": "id"
+    },
+    "location_city_address": {
+        "dataBkt": "location",
+        "indexBkt": "location_city_address_index",
+        "dataFlds": [
+            {"fldName":"city", "fldType":"string", "length":15},
+            {"fldName":"address", "fldType":"string", "length":20}
+        ],
+        "dataIdFld": "id"
+    },
+    "location_locationtype": {
+        "dataBkt": "location",
+        "indexBkt": "location_locationtype_index",
+        "dataFlds": [
+            {"fldName":"locationType", "fldType":"int", "length":3}
+        ],
+        "dataIdFld": "id"
+    }
+}
