@@ -29,7 +29,7 @@ The clone process creates a subdirectoy called bobb inside the current directory
 1. ctrl-z   (stops foreground process, allows entry of command)
 2. bg       (puts process to background)
 3. jobs -l  (shows list of running job ids preceded by job number)  
-4. fg %jobnumber (brings server back to foreground)
+4. fg %n (brings server back to foreground, n is jobnumber) ex fg %1
 see linux_notes.txt for more info    
 ----------------------------------------------------------------------------------
 
@@ -54,16 +54,16 @@ Example steps
 add the replace line as shown below to go.mod file
 > mkdir pgm1
 > cd pgm1
-> create new program, pgm1.go, that uses bobb
-> run go mod tidy
+> create new program, pgm1.go, that uses bobb, see sample pgm below
+> go mod tidy
 
-Contents of go.mod after these steps.
+Contents of bobbtest/go.mod after these steps. Change paths as needed.
 
    module bobbtest
 
-   go 1.25.0
+   go 1.22.0
 
-   replace github.com/jayposs/bobb => /home/jay/bobb    (change local path as needed)
+   replace github.com/jayposs/bobb => /home/jay/bobb 
 
    require github.com/jayposs/bobb v0.0.0
 
@@ -72,3 +72,39 @@ Contents of go.mod after these steps.
       go.etcd.io/bbolt v1.3.8 // indirect
       golang.org/x/sys v0.4.0 // indirect
    )
+
+
+Sample Client Pgm to verify setup. Server must be running.
+------------------------------------------------------------
+
+package main
+
+import (
+	"log"
+	"net/http"
+
+	"github.com/jayposs/bobb"
+	bo "github.com/jayposs/bobb/client"
+)
+
+func main() {
+
+	bo.BaseURL = "http://localhost:50555/"
+	bo.Debug = false
+	
+	httpClient := new(http.Client)
+
+	req := bobb.GetAllKeysRequest{BktName: "location"}
+
+	resp, _ := bo.Run(httpClient, bobb.OpGetAllKeys, req)
+	if resp.Status != bobb.StatusOk {
+		log.Fatalln("getAllKeys failed", resp.Msg)
+	}
+	log.Println("count", len(resp.Recs))
+
+	for i,key := range resp.Recs {
+		log.Println(i, string(key))
+	}
+}
+
+----------------------------------------

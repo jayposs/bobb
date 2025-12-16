@@ -99,9 +99,9 @@ Other Steps To consider
 
 Install Go
     1. cd to dir where tar.gz file will be downloaded: ex. cd ~/downloads
-    2. download tar.gz file: wget https://golang.org/dl/go1.22.5.linux-amd64.tar.gz  (change to desired version)
+    2. download tar.gz file: wget https://golang.org/dl/go1.25.0.linux-amd64.tar.gz  (change to desired version)
     3. remove previously installed version: sudo rm -rf /usr/local/go
-    4. install new version: sudo tar -C /usr/local -xzf go1.22.5.linux-amd64.tar.gz
+    4. install new version: sudo tar -C /usr/local -xzf go1.25.0.linux-amd64.tar.gz
     5. add to ~/.bashrc: export PATH=$PATH:/usr/local/go/bin  (requires relogin to activate)
 
 Hopefully I got these instructions right.              

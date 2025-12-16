@@ -1,6 +1,6 @@
 {
-    "dbPath": "/home/jay/data/bobb_big.db",
-    "port":   "8000",
+    "dbPath": "bobb_demo.db",
+    "port":   "50555",
     "trace":  "on",
     "logPath": "",
     "compressResponse": false,
