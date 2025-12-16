@@ -4,7 +4,7 @@ Bobb attempts to find a good balance of small code size, simplicity, speed, and 
 
 ### Documentation
 * Folder "info" contains documentation files
-* See info/a-index.md for description and link to each
+* See [info/a-index.md](info/a-index.md) for description and link to each
     
 ### Features
 * Http Server that allows multiple programs to simultaneously access the same database
@@ -52,23 +52,23 @@ Example Go pkg: https://github.com/kaptinlin/jsonschema.
 * Primary data bucket: 166,700 records
 * Qry with 1 find criteria, 2 sort parms, no index, 2546 result recs:  < .2 secs 
 * Qry with 4 find criteria, 4 sort parms, no index, 1462 result recs:  < .2 secs 
-* Get with no find criteria or sort parms, using index range, 70,600 result recs:  < .5 secs 
+* GetAll (no find criteria or sort parms), using index range, 70,600 result recs:  < .5 secs 
 * Qry with 1 find critera, 1 sort parm, using index range, 4,536 result recs:  < .07 secs 
 * Qry with 1 find critera, 1 sort parm, using index range, 58 result recs:  < .004 secs 
-* Get with no find critera, no sort parms, using primary key prefix, 14 result recs:  < .001 secs
+* GetAll (no find critera or sort parms), using primary key prefix, 14 result recs:  < .001 secs
 * Qry with 1 join, 1 find critera, 1 sort parm, using index range, 63,583 result recs:  < 1.02 secs  
 * Batch load 166,700 records - 7 secs
 * Load 1 index for 166,700 records - 5 secs
 
 ### Status (Dec 2025)
-I am having some health issues and not sure what my level of effort will be. I think Bobb can be a useful project. The design is probably lacking, but I am amazed at how fast it runs. This quality is mainly due to Bolt, Fastjson, and Go. My hope is someone smarter than me will take Bobb to the next level and many programmers will put it in their toolbox.  
   
-All features have been tested and confirmed using a very small dataset (see demo/demo.go). Volume tests run successfully, but results only randomly visually confirmed. Long running stress tests indicate memory use and performance remain constant.
+All features have been tested and confirmed using a very small dataset (see demo/demo.go). Volume tests run successfully, but results only visually confirmed. Long running stress tests indicate memory use and performance remain constant. At this point, I would consider Bobb good for hobby projects, but results need confirmation.
 
-## History  
-Bobb did not start off as an intentional project. I began experimenting with some ideas just out of curiosity and over time, I felt like a real project was in sight. I don't consider myself to be knowledgeable enough to create a true database, but IMO Bobb is pretty awesome.  
+### History  
 
-## FYI - How Much Is Too Much  
+Bobb did not start off as an intentional project. I began experimenting with some ideas just out of curiosity and over time, I felt like a real project had emerged. I don't consider myself to be knowledgeable enough to create a true database, but IMO Bobb is pretty cool.  
+
+### FYI - How Much Is Too Much  
 
 Based on the following statistics, I would assume Bobb is completely unworthy of consideration, but I post it anyway.  
 

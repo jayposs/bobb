@@ -34,8 +34,8 @@ Bbolt has a compact function, but not currently implemented by Bobb.
 ```
 **Process Flow**  
 1. Client sends http request to running server using bobb/client Run() func
-2. Based on url, the appropriate handler func is called
-3. DB handler func creates response which is returned to client  
+2. Based on url, the appropriate Request handler is called
+3. Request handler creates response which is returned to client  
 
 **Transactions**  
 All requests are done inside a Bolt transaction. Updates will be rolled back if a database error occurs. Updates are committed when a transaction completes successfully.
