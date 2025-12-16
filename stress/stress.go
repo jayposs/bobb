@@ -41,7 +41,8 @@ var httpClient = new(http.Client)
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 
-	bo.BaseURL = "http://localhost:8000/" // must be where server is listening
+	bo.BaseURL = "http://localhost:50555/"
+	bo.Debug = false
 
 	//log.Println("starting")
 	//for i := 0; i < 10000; i++ {

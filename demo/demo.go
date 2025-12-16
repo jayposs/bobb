@@ -32,8 +32,7 @@ func main() {
 
 	log.Println("demo program starting")
 
-	//bo.BaseURL = "http://localhost:8000/" // must be where server is listening
-
+	bo.BaseURL = "http://localhost:50555/"
 	bo.Debug = false
 
 	httpClient = new(http.Client)

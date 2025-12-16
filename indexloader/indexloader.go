@@ -52,6 +52,9 @@ func main() {
 	}
 	log.Println("indexloader start")
 
+	bo.BaseURL = "http://localhost:50555/"
+	bo.Debug = false
+
 	request := getRequestSettings(indexName) // request is instance of IndexSetting
 	log.Println(request)
 

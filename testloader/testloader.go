@@ -53,12 +53,13 @@ func main() {
 
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 
+	bo.BaseURL = "http://localhost:50555/"
+	bo.Debug = false
+
 	wg := new(sync.WaitGroup)
 
 	loadCSVData() // loads data from .csv into locationData slice
 	log.Println("csv rec count:", len(locationData))
-
-	//httpClient = new(http.Client)
 
 	// DELETE BUCKET, NEW BUCKET CREATED AUTOMATICALLY ----------------
 	bktReq := bobb.BktRequest{BktName: locationBkt, Operation: "delete"}

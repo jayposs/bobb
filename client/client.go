@@ -14,13 +14,18 @@ import (
 	"github.com/jayposs/bobb"
 )
 
-var BaseURL string = "http://localhost:8000/" // must match port used by server.go from bobb-settings.json
-var Debug bool
+// vars set by client programs
+var (
+	BaseURL string
+	Debug   bool
+)
 
 // Run sends bobb server http request using the provided payload.
 // Used by client Go programs to interact with db.
-func Run(httpClient *http.Client, op string, payload interface{}) (*bobb.Response, error) {
+func Run(httpClient *http.Client, op string, payload any) (*bobb.Response, error) {
+
 	reqUrl := BaseURL + op
+
 	jsonContent, err := json.Marshal(&payload) // -> []byte
 	if err != nil {
 		log.Println("client.Run, json.Marshal of payload failed", err)

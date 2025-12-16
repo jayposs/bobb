@@ -33,6 +33,9 @@ func main() {
 
 	log.Println("bulk load start")
 
+	bo.BaseURL = "http://localhost:50555/"
+	bo.Debug = false
+
 	wg := new(sync.WaitGroup)
 
 	loadImportRecs() // load records to be imported into importRecs slice
