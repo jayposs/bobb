@@ -1,6 +1,7 @@
 # BOBB API 
 
 ### Contents
+* [Client Programs](#client-programs)
 * [Codes](#codes)
 * [Requests](#requests)
 * [Keys](#keys)
@@ -26,6 +27,15 @@ See bolt_direct for example pgm that interacts directly with db (not through ser
 * enter: godoc -http :6060
 * using browser: open localhost:6060
 * under Packages, select Third party
+
+### Client Programs
+
+See install.txt for example client program setup.  
+
+Client pgms must set the BaseURL var defined in client/client.go.
+A good practice would be to set this value using a common external client settings file.
+
+Program demo/demo.go demonstrates how to send/receive requests to bobb_server.
 
 Include the following imports:
 ```
