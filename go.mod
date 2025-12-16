@@ -1,6 +1,6 @@
 module github.com/jayposs/bobb
 
-go 1.25.3
+go 1.22.0
 
 require (
 	github.com/valyala/fastjson v1.6.4
