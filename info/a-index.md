@@ -6,6 +6,8 @@
 
 [Install](install.txt) - instructions on how to install and run
 
+[Code Guide](code_guide.txt) - list of Go files with descriptions
+
 [Server Setup](server_setup.txt) - instructions on setting up linux server (DigitalOcean)
 
 [Linux Notes](linux_notes.txt) - Linux commands for running server

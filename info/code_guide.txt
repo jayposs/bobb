@@ -1,0 +1,46 @@
+Code Guide
+
+bobb_server/bobb_server.go - http server pgm 
+-----------------------------------------------------------------
+
+Request types - located in the request_*.go files
+    requests_get.go - GetRequest, GetAllRequest, GetOneRequest, GetAllKeysRequest
+    requests_put.go - PutRequest, PutOneRequest, PutBktsRequest, PutIndexRequest
+    requests_qry.go - QryRequest
+    requests_misc.go - BktRequest, DeleteRequest, ExportRequest, CopyDBRequest 
+
+Each request type has a Run method that executes the request.
+-----------------------------------------------------------------
+
+util.go
+    Global Values - ServerStatus, TraceStatus, MaxErrs 
+    e func that creates instances of BobbError
+-----------------------------------------------------------------
+
+types.go
+    Response type - returned by all requests
+    Request interface - all requests satisfy this interface
+    BobbError type - responses contain slice of these
+-----------------------------------------------------------------
+
+readloop.go - ReadLoop type with methods to handle reading sequentially through a bucket   
+-----------------------------------------------------------------
+
+rec.go - Funcs dealing with a single parsed record
+    parsedRecGetStr - returns string value for specified field
+    parsedRecGetInt - returns int value for specified field
+    parsedRecFind - returns true if rec meets all FindConditions
+    MergeFlds - merges together multiple flds from a record
+-----------------------------------------------------------------
+
+client/client.go - funcs used by client pgms 
+    Run - sends http request to server, returns response to client
+    Shortcut funcs - GetOne, PutOne, CreateBkt, DeleteBkt, GetBktList, GetRecCount
+    Func Func - convenient way for adding a FindCondition to []FindConditions
+    Sort Func - convenient way for adding a SortKey to []SortKeys
+
+indexloader/indexloader.go - example pgm to bulk load index bkt    
+
+bulkload/bulkload.go - template for bulk loading records
+
+bolt_direct/bolt_direct.go - example program for interacting directly with a bolt database
