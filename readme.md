@@ -56,10 +56,16 @@ Example Go pkg: https://github.com/kaptinlin/jsonschema.
 
 ### Status (Dec 2025)
   
-All features have been tested and confirmed using a very small dataset (see demo/demo.go). Volume tests run successfully, but results only visually confirmed. Long running stress tests indicate memory use and performance remain constant. At this point, I would consider Bobb good for hobby projects, but results need confirmation.
+All features have been tested and confirmed using a very small dataset (see demo/demo.go). Volume tests run successfully, but results only visually confirmed. Long running stress tests (multiple requests sent in bursts for hours) indicate memory use and performance remain constant. At this point, I would consider Bobb good for hobby projects, but results need confirmation.  
+
+I am pretty old and retired from a regular job. Programming is still fun but not sure how long I will keep it going.  
 
 ### History  
 
+I used the community version of MongoDB for 6 years at a medium sized company and it worked well. Because it is such a monster sized product, I always worried something would go wrong and I wouldn't have the foggiest idea what to do. It also had a ton of features that were never used.  Choosing a service like Atlas would have been easy, but there are problems with that solution.
+  
+I didn't and still don't see any "simple" database that has the features that were important to me.  
+  
 Bobb did not start off as an intentional project. I began experimenting with some ideas just out of curiosity and over time, I felt like a real project had emerged. I don't consider myself to be knowledgeable enough to create a true database, but IMO Bobb is pretty cool.  
 
 ### FYI - How Much Is Too Much  
