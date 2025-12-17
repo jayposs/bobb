@@ -15,8 +15,8 @@ var parserPool = new(fastjson.ParserPool)
 // GetRequest is used to get specific records by key.
 // Keys must be string values. They will be converted to []byte by Get request.
 type GetRequest struct {
-	BktName string   `json:"bktName"`
-	Keys    []string `json:"keys"` // keys of records to be returned
+	BktName string
+	Keys    []string // keys of records to be returned
 }
 
 func (req GetRequest) IsUpdtReq() bool {
@@ -54,11 +54,11 @@ func (req *GetRequest) Run(tx *bolt.Tx) (*Response, error) {
 // If StartKey = "", reads from beginning. If EndKey = "" reads to end.
 // If end of bkt not reached, response.NextKey will be next key in order.
 type GetAllRequest struct {
-	BktName  string `json:"bktName"`
-	IndexBkt string `json:"indexBkt"` // name of bkt used as index
-	StartKey string `json:"startKey"` // if not "", keys >= this value
-	EndKey   string `json:"endKey"`   // if not "", keys <= this value
-	Limit    int    `json:"limit"`    // max # recs to return
+	BktName  string
+	IndexBkt string // name of bkt used as index
+	StartKey string // if not "", keys >= this value
+	EndKey   string // if not "", keys <= this value
+	Limit    int    // max # recs to return
 	ErrLimit int    // run stops when ErrLimit exceeded, default 0, settings.MaxErrs limit if -1
 }
 
@@ -118,10 +118,10 @@ func (req *GetAllRequest) Run(tx *bolt.Tx) (*Response, error) {
 // Use Start/End keys to specify range to be included.
 // If StartKey == EndKey, key prefix must match StartKey.
 type GetAllKeysRequest struct {
-	BktName  string `json:"bktName"`
-	StartKey string `json:"startKey"` // if not "", keys >= this value
-	EndKey   string `json:"endKey"`   // if not "", keys <= this value
-	Limit    int    `json:"limit"`    // max # recs to return
+	BktName  string
+	StartKey string // if not "", keys >= this value
+	EndKey   string // if not "", keys <= this value
+	Limit    int    // max # recs to return
 }
 
 func (req GetAllKeysRequest) IsUpdtReq() bool {
@@ -153,8 +153,8 @@ func (req *GetAllKeysRequest) Run(tx *bolt.Tx) (*Response, error) {
 // GetOneRequest is used to get a specific record by Key.
 // Key must be string value. It will be converted to []byte by GetOne request.
 type GetOneRequest struct {
-	BktName string `json:"bktName"`
-	Key     string `json:"key"` // key of record to be returned
+	BktName string
+	Key     string // key of record to be returned
 }
 
 func (req GetOneRequest) IsUpdtReq() bool {

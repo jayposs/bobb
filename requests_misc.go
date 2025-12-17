@@ -46,9 +46,9 @@ func openBkt(tx *bolt.Tx, resp *Response, bktName string, createIfNotExists ...b
 // Count operation returns number of keys in specified bkt.
 // See shortcut func GetRecCount() in client/util.go.
 type BktRequest struct {
-	BktName      string `json:"bktName"`
-	Operation    string `json:"operation"`    // "create", "delete", "nextseq", "list", "count"
-	NextSeqCount int    `json:"nextSeqCount"` // used with nextseq op to specify how many (max 100)
+	BktName      string
+	Operation    string // "create", "delete", "nextseq", "list", "count"
+	NextSeqCount int    // used with nextseq op to specify how many (max 100)
 }
 
 func (req BktRequest) IsUpdtReq() bool {
@@ -128,8 +128,8 @@ func bktNextSeq(bkt *bolt.Bucket, count int) ([]int, error) {
 // DeleteRequest is used to delete specific records by Key.
 // Keys not found are ignored.
 type DeleteRequest struct {
-	BktName string   `json:"bktName"`
-	Keys    []string `json:"keys"` // keys of records to be deleted
+	BktName string
+	Keys    []string // keys of records to be deleted
 }
 
 func (req DeleteRequest) IsUpdtReq() bool {
@@ -157,11 +157,11 @@ func (req *DeleteRequest) Run(tx *bolt.Tx) (*Response, error) {
 
 // Export writes bkt records to a file as formatted json.
 type ExportRequest struct {
-	BktName  string `json:"bktName"`
-	StartKey string `json:"startKey"` // if not "", keys >= this value
-	EndKey   string `json:"endKey"`   // if not "", keys <= this value
-	Limit    int    `json:"limit"`    // max # recs to write
-	FilePath string `json:"filePath"` // where export file is written
+	BktName  string
+	StartKey string // if not "", keys >= this value
+	EndKey   string // if not "", keys <= this value
+	Limit    int    // max # recs to write
+	FilePath string // where export file is written
 }
 
 func (req ExportRequest) IsUpdtReq() bool {

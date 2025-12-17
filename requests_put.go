@@ -58,10 +58,10 @@ func putLogRec(bkt *bolt.Bucket, key string, rec []byte) error {
 // RequiredFlds (optional), fld names that must be included in recs.
 // Only top level fld names allowed.
 type PutRequest struct {
-	BktName      string   `json:"bktName"`
-	KeyField     string   `json:"keyField"`     // field in Rec containing value to be used as key
-	Recs         [][]byte `json:"recs"`         // records to be added or replaced in db
-	RequiredFlds []string `json:"requiredFlds"` // recs must include these fields (optional)
+	BktName      string
+	KeyField     string   // field in Rec containing value to be used as key
+	Recs         [][]byte // records to be added or replaced in db
+	RequiredFlds []string // recs must include these fields (optional)
 }
 
 func (req PutRequest) IsUpdtReq() bool {
@@ -100,13 +100,13 @@ func (req *PutRequest) Run(tx *bolt.Tx) (*Response, error) {
 // If either bkt update fails, complete transaction is rolled back.
 // RequiredFlds (optional), fld names that must be included in recs.
 type PutBktsRequest struct {
-	BktName       string   `json:"bktName"`
-	KeyField      string   `json:"keyField"`     // field in Rec containing value to be used as key
-	Recs          [][]byte `json:"recs"`         // records to be added or replaced in bkt 1
-	RequiredFlds  []string `json:"requiredFlds"` // recs must include these fields (optional)
-	Bkt2Name      string   `json:"bkt2Name"`
-	Recs2         [][]byte `json:"recs2"`         // records to be added or replaced in bkt 2
-	RequiredFlds2 []string `json:"requiredFlds2"` // recs must include these fields (optional)
+	BktName       string
+	KeyField      string   // field in Rec containing value to be used as key
+	Recs          [][]byte // records to be added or replaced in bkt 1
+	RequiredFlds  []string // recs must include these fields (optional)
+	Bkt2Name      string
+	Recs2         [][]byte // records to be added or replaced in bkt 2
+	RequiredFlds2 []string // recs must include these fields (optional)
 }
 
 func (req PutBktsRequest) IsUpdtReq() bool {
@@ -162,11 +162,11 @@ func (req *PutBktsRequest) Run(tx *bolt.Tx) (*Response, error) {
 // LogPut indicates to put record to bktname_putlog bkt.
 // Key is dataKey|timestamp. Value is Rec. Provides point in time values.
 type PutOneRequest struct {
-	BktName      string   `json:"bktName"`
-	KeyField     string   `json:"keyField"`     // field in Rec containing value to be used as key
-	Rec          []byte   `json:"rec"`          // record to be added or replaced in db
-	RequiredFlds []string `json:"requiredFlds"` // recs must include these fields (optional)
-	LogPut       bool     `json:"logPut"`       // if true, write record to bktname_putlog bkt
+	BktName      string
+	KeyField     string   // field in Rec containing value to be used as key
+	Rec          []byte   // record to be added or replaced in db
+	RequiredFlds []string // recs must include these fields (optional)
+	LogPut       bool     // if true, write record to bktname_putlog bkt
 }
 
 func (req PutOneRequest) IsUpdtReq() bool {
@@ -218,9 +218,9 @@ func (req *PutOneRequest) Run(tx *bolt.Tx) (*Response, error) {
 // If OldKey not empty, it will be deleted. No problem if it does not exist.
 // MergeFlds func in rec.go can be used to merge multiple flds together to form key.
 type IndexKeyVal struct {
-	Key    string `json:"key"`
-	Val    string `json:"val"`
-	OldKey string `json:"oldKey"` // used when index rec already exists for data key
+	Key    string
+	Val    string
+	OldKey string // used when index rec already exists for data key
 }
 
 // PutIndex is used to add or replace index records.
@@ -230,8 +230,8 @@ type IndexKeyVal struct {
 // WARNING - if data rec already has index rec, changing index key will cause multiple records for same data rec.
 // Use OldKey to delete existing index rec.
 type PutIndexRequest struct {
-	BktName string        `json:"bktName"`
-	Indexes []IndexKeyVal `json:"indexes"`
+	BktName string
+	Indexes []IndexKeyVal // slice of index key/val/oldkey structs
 }
 
 func (req PutIndexRequest) IsUpdtReq() bool {

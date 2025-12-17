@@ -15,8 +15,8 @@ const OpGetValues = "getvalues"
 
 // RecValues is record type returned by GetValues
 type RecValues struct {
-	Key     string            `json:"key"`     // record key
-	FldVals map[string]string `json:"fldVals"` // fldName:value
+	Key     string            // record key
+	FldVals map[string]string // fldName:value
 }
 
 // GetValues returns specific values rather than entire record.
@@ -26,9 +26,9 @@ type RecValues struct {
 // Response.Recs loaded with slice of json marshalled RecValues (see type above)
 // Valid type values: string, int, float64, bool (defaults to string)
 type GetValuesRequest struct {
-	BktName string   `json:"bktName"`
-	Keys    []string `json:"keys"`   // keys of records to be returned
-	Fields  []string `json:"fields"` // field values to return
+	BktName string
+	Keys    []string // keys of records to be returned
+	Fields  []string // field values to return
 }
 
 func (req GetValuesRequest) IsUpdtReq() bool {
