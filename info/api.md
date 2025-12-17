@@ -207,9 +207,9 @@ type FindCondition struct {
 SortKeys specify the sort order of results. The Dir attribute defines both direction and value type. For example, SortAscInt and SortDescStr. See codes.go for all sort codes. If not specified, results are returned in key/index order.
 ```
 type SortKey struct {
-	Fld string `json:"fld"` // name of field
-	Dir string `json:"dir"` // direction (asc/desc) and field type (str/int)
-    UseDefault string       // controls what default value is used, see Default* codes in codes.go
+	Fld string  // name of field
+	Dir string  // direction (asc/desc) and field type (str/int)
+    UseDefault string	// controls what default value is used, see Default* codes in codes.go
 }
 ```  
 -------------------------------------------------------------------------------------------------------
@@ -333,8 +333,9 @@ it may be faster to scan the complete data bkt, rather than using an index.
 
 BktRequest - create, delete, get next sequence #, list, count  
 - Operation field specifies the action
-    - "create" to create bkt, "delete" to delete bkt, "nextseq" for seq numbers, "list" to get all bkt names
-    "count" to get number of keys in bkt
+	- see codes.go for Bkt* constants
+    - BktCreate to create bkt, BktDelete to delete bkt, BktNextSeq for seq numbers, BktList to get all bkt names,
+    BktCount to get number of keys in bkt
 - Bolt provides a NextSequence feature which returns an auto incrementing integer for each bkt
 - NextSeqCount field specifies how many sequence numbers to return (max 100) 
     - A NextSeqCount of 20 will return the next 20 numbers in order  
