@@ -99,6 +99,12 @@ func main() {
 	qryJoin1() // new feature added Oct 17, 2024
 
 	bktList := bo.GetBktList(httpClient) // get list of all db buckets
+	bkts := []string{"location", "location_log", "location_zip_index", "request", "qry5", "order", "order_item"}
+	for _, bkt := range bkts {
+		if !slices.Contains(bktList, bkt) {
+			log.Fatalf("Bucket %s not found in bucket list", bkt)
+		}
+	}
 	log.Println("DB Buckets -> ", bktList)
 
 	// ---- experimental requests, see experimental.go ------------------------
