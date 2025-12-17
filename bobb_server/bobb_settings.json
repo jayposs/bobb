@@ -1,5 +1,5 @@
 {
-    "dbPath": "/home/jay/data/bobb_big.db",
+    "dbPath": "bobb_demo.db",
     "port":   "50555",
     "trace":  "on",
     "logPath": "",
