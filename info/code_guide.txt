@@ -1,6 +1,9 @@
-Code Guide
+CODE GUIDE
+-----------
 
 bobb_server/bobb_server.go - http server pgm 
+
+bobb_server/routes_std.go - http.HandleFunc routing for standard requests
 -----------------------------------------------------------------
 
 Request types - located in the request_*.go files
@@ -33,11 +36,18 @@ rec.go - Funcs dealing with a single parsed record
     MergeFlds - merges together multiple flds from a record
 -----------------------------------------------------------------
 
-client/client.go - funcs used by client pgms 
+client/client.go - func used by client pgms 
     Run - sends http request to server, returns response to client
+
+client/util.go - funcs used by client pgms    
     Shortcut funcs - GetOne, PutOne, CreateBkt, DeleteBkt, GetBktList, GetRecCount
-    Func Func - convenient way for adding a FindCondition to []FindConditions
-    Sort Func - convenient way for adding a SortKey to []SortKeys
+    Find func - convenient way for adding a FindCondition to []FindConditions
+    Sort func - convenient way for adding a SortKey to []SortKeys
+-----------------------------------------------------------------
+
+demo/demo.go - demo pgm which runs and verifies all Request types
+
+demo/datatypes.go - record struct types used by demo pgm 
 
 indexloader/indexloader.go - example pgm to bulk load index bkt    
 
