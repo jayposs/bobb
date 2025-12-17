@@ -21,23 +21,17 @@ Bobb attempts to find a good balance of small code size, simplicity, speed, and 
 	    bo "github.com/jayposs/bobb/client"
     )
     ...
-    criteria := []bobb.FindCondition{
-		{Fld: "zip", Op: bobb.FindStartsWith, ValStr: "54"},
-        {Fld: "locationType", Op: bobb.FindEquals: ValInt: 3},
-	} 
-	sortKeys := []bobb.SortKey{
-		{Fld: "address", Dir: bobb.SortAscStr},
+    req := bobb.GetAllRequest{
+		BktName:  "inquiry",
+		IndexBkt: "inquiry-timestamp-index",
+		StartKey: "2021-01-00 00:00:00",
+		EndKey:   "2021-03-31 99:99:99",
 	}
-	req := bobb.QryRequest{
-		BktName:        "location",
-		FindConditions: criteria,
-		SortKeys:       sortKeys,
+	resp, err := bo.Run(httpClient, bobb.OpGetAll, req)
+	if resp.Status != bobb.StatusOK {
+		log.Println(resp.Msg)
 	}
-	resp, err := bo.Run(httpClient, bobb.OpQry, req)
-    if resp.Status != bobb.StatusOk {
-        log.Println(resp.Msg)
-    }
-    result := bo.JsonToSlice(resp.Recs, Location{})  // result is []Location recs  
+	results := bo.JsonToMap(resp.Recs, Inquiry{}) // convert resp.Recs ([][]byte) to map of Inquiry recs
 
 ```
 A number of "shortcut" functions are included to reduce coding. For example, bo.GetOne(..) returns a single record into a target variable in a single line of code. 
@@ -78,8 +72,6 @@ From SQLite web site:
 From DuckDB 1.0.0 announcement:  
 There are now over 300 000 lines of C++ engine code, over 42 000 commits and almost 4 000 issues were opened and closed again. 
 
-I would assume MySQL, PostgreSQL, and MongoDB are much larger.
-
 Checking MongoDB on Github (the underlying key-value engine, WiredTiger, is separate project):  
  -mongo/src/mongo/ - 24 sub folders  
  -mongo/src/mongo/db - aprox 400 files + 28 sub folders  
@@ -91,4 +83,18 @@ Checking MongoDB on Github (the underlying key-value engine, WiredTiger, is sepa
  -mongo/src/mongo/db/query/optimizer - 20 files + 4 sub folders  
  -mongo/src/mongo/db/query/optimizer/rewrites - 9 files  
 
+### Using cloc Linux utility, bobb contains:
+```
+github.com/AlDanial/cloc v 1.90  T=0.04 s (1013.2 files/s, 142525.7 lines/s)
 
+Language                     files          blank        comment           code
+-------------------------------------------------------------------------------
+Go                              25            638            403           4011
+Markdown                         6            157              0            513
+JSON                             7              0              0            179
+Bourne Shell                     4              0              3              4
+-------------------------------------------------------------------------------
+SUM:                            42            795            406           4707
+-------------------------------------------------------------------------------
+
+```
