@@ -1,4 +1,4 @@
-# BOBB API 
+## Bobb API 
 
 ### Contents
 * [Client Programs](#client-programs)
@@ -127,6 +127,10 @@ If creating a key from data values:
 1. if data value, used in key, may change, consider how to deal with complications   
 2. see MergeFlds func in rec.go for merging multiple values together from existing record  
 
+**WARNING**  
+When using MergeFlds to create a key, negative integers may not produce the desired value.  
+Larger absolute values will sort after smaller absolute values. For example -00010 will sort before -00100.
+
 -------------------------------------------------------------------------------------------------------
 ### Start End Keys
 
@@ -137,6 +141,11 @@ Seeking to a Start key and reading from that point is very fast.
   
 Range starts with first rec where key is >= Start key.  
 Range ends with last rec where key is <= End key.  
+
+NOTE on string comparison rules (all keys are strings):  
+
+> The comparison proceeds until it finds the first byte where the two strings differ. The string with the smaller byte value at that position is considered the smaller string overall.  
+> If one string is a prefix of the other (meaning all its bytes match the beginning of the other string), the shorter, prefix string is considered smaller than the longer string. The longer string is considered the larger one. 
 
 **Using a key prefix**   
 To use a key prefix, set StartKey and EndKey to the prefix value. All records where key prefix matches are in range.
