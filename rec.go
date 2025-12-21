@@ -41,11 +41,11 @@ func MergeFlds(parsedRec *fastjson.Value, flds []FldFormat, separator string) (m
 	for i, fld := range flds {
 		fmtLength := strconv.Itoa(fld.Length)
 		switch fld.FldType {
-		case "int":
+		case FldTypeInt:
 			intVal, _ = parsedRecGetInt(parsedRec, fld.FldName, useDefault) // err ignored
 			format = "%0" + fmtLength + "d"
 			formattedFlds[i] = fmt.Sprintf(format, intVal)
-		case "string":
+		case FldTypeStr:
 			strVal, _ = parsedRecGetStr(parsedRec, fld.FldName, useDefault, StrPlain)
 			if len(strVal) > fld.Length {
 				strVal = strVal[:fld.Length]

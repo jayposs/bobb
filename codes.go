@@ -112,3 +112,8 @@ const (
 	BktList    = "list"    // get list of all buckets in db
 	BktCount   = "count"   // get count of keys in a bucket
 )
+
+const (
+	FldTypeStr = "string"
+	FldTypeInt = "int"
+)
