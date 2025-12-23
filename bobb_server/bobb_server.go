@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"os"
@@ -76,8 +75,6 @@ func main() {
 	log.Println(http.ListenAndServe(":"+settings.Port, nil))
 }
 
-//func process[T bobb.Request](op string, req T, handler HandlerFunc, w http.ResponseWriter, r *http.Request) {   also works
-
 // Func process executes the request.
 // Parm req is pointer to request type which implements bobb.Request interface.
 func process(op string, req bobb.Request, w http.ResponseWriter, r *http.Request) {
@@ -86,69 +83,40 @@ func process(op string, req bobb.Request, w http.ResponseWriter, r *http.Request
 		http.Error(w, "server not accepting requests", http.StatusServiceUnavailable)
 		return
 	}
-	jsonContent, err := io.ReadAll(r.Body) // -> []byte
+
+	decoder := json.NewDecoder(r.Body)
+	err := decoder.Decode(&req)
 	if err != nil {
-		log.Println("readall of request body failed", op, err)
+		log.Println("Error decoding JSON", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	err = json.Unmarshal(jsonContent, req)
-	if err != nil {
-		log.Println("json.Unmarshal failed", op, err)
-		log.Println(string(jsonContent))
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+
+	// updateFunc is called for update Requests
+	var updateFunc = func(tx *bolt.Tx) error {
+		response, err := req.Run(tx)
+		if err == nil || err == bobb.ErrBadInputData { // allow bobb.ErrBadInputData to be returned to caller in normal response
+			writeResponse(response, w)
+		} else {
+			log.Println("DB Error Occured - Update transaction rolled  back", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		return err // non nil err will cause bbolt to rollback the transaction
 	}
-	var response *bobb.Response
-	var dbErr, txErr error
-	var jsonData []byte
-	var jsonErr error
+
+	// viewFunc is called for read Requests
+	var viewFunc = func(tx *bolt.Tx) error {
+		response, _ := req.Run(tx) // View requests always return nil err
+		writeResponse(response, w)
+		return nil
+	}
 
 	if req.IsUpdtReq() {
-		txErr = db.Update(func(tx *bolt.Tx) error {
-			response, dbErr = req.Run(tx)
-			jsonData, jsonErr = json.Marshal(response)
-			return dbErr
-		})
+		db.Update(updateFunc)
 	} else {
-		txErr = db.View(func(tx *bolt.Tx) error {
-			response, dbErr = req.Run(tx) // View requests always return nil dbErr
-			jsonData, jsonErr = json.Marshal(response)
-			return dbErr
-		})
+		db.View(viewFunc)
 	}
 
-	// when dbErr == bobb.ErrBadInputData
-	//  db.Update func returned non nil dbErr to cause rollback of updates
-	//  this error indicates a problem with the input data, not a database error
-	//  we want normal response to be returned to requestor rather than a server error
-	if dbErr == bobb.ErrBadInputData {
-		log.Println("data error detected")
-		dbErr = nil
-		txErr = nil
-	}
-	if dbErr != nil {
-		log.Println("DB Error Occured - Update transaction rolled  back", dbErr)
-		http.Error(w, dbErr.Error(), http.StatusInternalServerError)
-		return
-	}
-	if txErr != nil {
-		log.Println("DB Transaction Error Occured", txErr)
-		http.Error(w, txErr.Error(), http.StatusInternalServerError)
-		return
-	}
-	// NOTE - marshalling is done before exiting bbolt transaction
-	// references to db values are not preserved after txn ends
-	if jsonErr != nil {
-		log.Println("json.Marshal response failed", err)
-		log.Println(response)
-		return
-	}
-	if settings.CompressResponse {
-		compressResponse(jsonData, w)
-	} else {
-		w.Write(jsonData)
-	}
 	bobb.Trace(op + " == request complete ==")
 }
 
@@ -163,6 +131,7 @@ func loadSettings(fileName string) {
 	}
 	bobb.TraceStatus.Set(settings.Trace)
 
+	// CONSIDER OPTION TO APPEND TO LOG FILE RATHER THAN OVERWRITE ###
 	if settings.LogPath != "" {
 		logFile, err = os.Create(settings.LogPath)
 		if err != nil {
@@ -191,16 +160,34 @@ func shutDown() {
 	}
 }
 
-// compressResponse returns compressed http response
-func compressResponse(jsonData []byte, w http.ResponseWriter) {
+// writeResponse returns response to client
+func writeResponse(resp *bobb.Response, w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Content-Encoding", "gzip")
-	compressor := gzipWriterPool.Get().(*gzip.Writer)
-	compressor.Reset(w)
-	_, err := compressor.Write(jsonData)
-	compressor.Close()
-	gzipWriterPool.Put(compressor)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+
+	if settings.CompressResponse {
+		w.Header().Set("Content-Encoding", "gzip")
+
+		compressor := gzipWriterPool.Get().(*gzip.Writer)
+		compressor.Reset(w)
+
+		encoder := json.NewEncoder(compressor)
+		err := encoder.Encode(resp)
+		if err != nil {
+			log.Println("json encoding failed, with compression", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		err = compressor.Close()
+		if err != nil {
+			log.Println("compressor.Close() failed", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		gzipWriterPool.Put(compressor)
+	} else {
+		encoder := json.NewEncoder(w)
+		err := encoder.Encode(resp)
+		if err != nil {
+			log.Println("json encoding failed, no compression", err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 	}
 }
