@@ -28,7 +28,7 @@ func stdRoutes() {
 		var req bobb.GetAllKeysRequest
 		process(bobb.OpGetAllKeys, &req, w, r)
 	})
-	http.HandleFunc("/"+bobb.OpQry, func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/qry", func(w http.ResponseWriter, r *http.Request) {
 		var req bobb.QryRequest
 		process(bobb.OpQry, &req, w, r)
 	})
