@@ -49,7 +49,9 @@ demo/demo.go - demo pgm which runs and verifies all Request types
 
 demo/datatypes.go - record struct types used by demo pgm 
 
-indexloader/indexloader.go - example pgm to bulk load index bkt    
+indexloader/indexloader.go - example pgm to bulk load index bkt   
+
+indexrecs/indexrecs.go - example pgm for loading index recs for specific data recs
 
 bulkload/bulkload.go - template for bulk loading records
 

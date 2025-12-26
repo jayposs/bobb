@@ -24,6 +24,8 @@ The zero value of a slice is nil. Length of a nil slice is zero.
 var aSlice []int   // aSlice == nil
 len(aSlice) is 0
 
+Entries can be appended to a nil slice.
+
 Other aspects of slices are pretty easy to understand with plenty of explanations elsewhere. 
 
 Be careful when making a slice with non zero length attribute and then adding entries with append.

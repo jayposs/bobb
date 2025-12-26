@@ -66,8 +66,10 @@ Index buckets can speed processing when the data keys don't provide useful start
 
 The **PutIndex** request is used to load index buckets.
 
-The **Index Loader** (indexloader/indexloader.go) can be used to create and bulk load an index bucket. Use it as an example, but feel free to load indexes however you want. Not all records in a bucket need be indexed for every index (think sparse index). 
+Pgm **indexloader/indexloader.go** can be used to create and bulk load an index bucket. Use it as an example, but feel free to load indexes however you want. Not all records in a bucket need be indexed for every index (think sparse index). 
 
+See **indexrecs/indexrecs.go** for example pgm that loads index records for specific data records.  
+  
 Generally, index records should be created from existing records. The func MergeFlds uses a fastjson parsed record for input. It is a handy way to create index keys from multiple values in the record. See indexloader.go for example.
 
 If the dataset is fairly static, for example once daily updates, a batch process to completely recreate the index

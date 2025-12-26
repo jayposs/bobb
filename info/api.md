@@ -15,6 +15,7 @@
 * [Bucket Operations](#bucket-operations)
 * [Misc Requests](#misc-requests)
 * [Experimental Requests](#experimental-requests)
+* [Data Type Structs]
 
 -------------------------------------------------------------------------------------------------------
 See demo/demo.go for examples of all request types.
@@ -295,7 +296,9 @@ Use when primary key does not provide efficient way to access subset of records.
 Key - string, typically data value(s) merged together from data rec, made unique  
 Value - string, key of data rec in data bucket  
   
-See indexloader/indexloader.go, index_settings.json for examples.  
+See indexloader/indexloader.go, index_settings.json for example pgm to bulk load all index recs for bkt.  
+
+See indexrecs/indexrecs.go for example pgm to load index recs for specific data recs.
   
 Func MergeFlds in rec.go can be used to create keys composed of multiple fld values.  
   
@@ -383,3 +386,8 @@ They are included in bobb_server.go and demo.go.
 
 * GetValues - returns specific values rather than whole records
 * SearchKeys - searches the key values rather than data values (works with data and index bkts)
+
+-------------------------------------------------------------------------------------------------------
+### Data Type Structs  
+
+Structs that contain a db record structure must include RecId() method which returns the value of the field containing record key, typically from the field named "id".

@@ -1,0 +1,13 @@
+Add Your Own Requests to Bobb
+
+1. Create new Requests file located in bobb top level folder.
+    Use standard requests file as an example, such as requests_get.go.
+    Each request must meet the Requests interface type as defined in types.go.
+
+2. Add routing to customRoutes() func in bobb_server/routes_custom.go  
+
+3. Add codes such as new Op code.     
+    See codes.go for standard codes.
+    Place your codes either in new Requests file or a new file with just your codes.
+
+When installing new version of Bobb be sure to keep these changes.

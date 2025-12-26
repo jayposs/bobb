@@ -17,14 +17,21 @@ The clone process creates a subdirectoy called bobb inside the current directory
 3. run go mod tidy - should get bbolt and fastjson
 4. cd to bobb_server sub directory
 5. confirm bobb_settings.json are ok
-6. start server - go run .  (or compile and use binary)
+6. start server > go run .  
    verify "waiting for requests ..." is displayed    
+   or ---
+** To create compiled version > go build -o ../bin (puts binary in bin dir)
+	copy settings file > cp bobb_settings.json ../bin
+	> cd ../bin
+	> ./bobb_server
 7. open new terminal window (or put server to background**)
 8. cd to demo sub directory   
-9. run demo pgm - go run . 
+9. run demo pgm > go run . 
    verify "Demo Pgm Finished Successfully" is displayed  
    Note - port in bobb_settings.json, must match bo.BaseURL in demo.go
    
+To immediately stop running server when in foreground > ctrl-c  
+
 **To put server to background
 1. ctrl-z   (stops foreground process, allows entry of command)
 2. bg       (puts process to background)
