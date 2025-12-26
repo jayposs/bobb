@@ -10,13 +10,14 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/jayposs/bobb"
 )
 
 // vars set by client programs
 var (
-	BaseURL string
+	BaseURL string // port must match value in settings file used by bobb_server
 	Debug   bool
 )
 
@@ -47,6 +48,7 @@ func Run(httpClient *http.Client, op string, payload any) (*bobb.Response, error
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Accept-Encoding", "gzip")
 
+	httpClient.Timeout = 30 * time.Second
 	httpResp, err := httpClient.Do(req)
 	if err != nil {
 		log.Println("client.Run, http.Do request failed", err)
@@ -84,6 +86,9 @@ func Run(httpClient *http.Client, op string, payload any) (*bobb.Response, error
 
 	bobbResp := new(bobb.Response)
 	err = json.Unmarshal(result, bobbResp)
-
+	if err != nil {
+		log.Println("json.Unmarshal result into bobb.Response Failed:", err)
+		return nil, err
+	}
 	return bobbResp, err
 }
