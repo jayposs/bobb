@@ -47,7 +47,10 @@ func main() {
 	bo.BaseURL = "http://localhost:50555/" // change to use common client settings file
 	bo.Debug = false
 
-	req := bobb.GetRequest{BktName: dataBkt, Keys: recIds}
+	req := bobb.GetRequest{
+		BktName: dataBkt,
+		Keys:    recIds,
+	}
 	resp, _ := bo.Run(httpClient, bobb.OpGet, req)
 	if resp.Status != bobb.StatusOk {
 		log.Fatalln("error in GetRequest", resp.Status, resp.Msg)
@@ -67,6 +70,8 @@ func main() {
 		indexKey = indexKey + fldSeparator + string(recId)             // append rec id to make index key unique
 
 		log.Println(indexKey)
+		// 11111|01|100
+		// 54633|03|104
 
 		indexes[i] = bobb.IndexKeyVal{Key: indexKey, Val: string(recId)}
 	}
