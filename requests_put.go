@@ -1,6 +1,3 @@
-// File updt_handlers.go contains funcs to process db.Update requests.
-// These funcs are called by the dbHandler func in the server.go program.
-
 package bobb
 
 import (
@@ -14,30 +11,30 @@ import (
 // putRec used by Put, PutBkts, PutOne funcs.
 // It adds or replaces a record in the bkt based on existence of key.
 // The value of keyField is used as the record key and this field must exist in rec.
-func putRec(bkt *bolt.Bucket, rec []byte, keyField string, parser *fastjson.Parser, requiredFlds []string) error {
+func putRec(bkt *bolt.Bucket, rec []byte, keyField string, parser *fastjson.Parser, requiredFlds []string) (error, *BobbErr) {
 	parsedRec, err := parser.ParseBytes(rec)
 	if err != nil {
-		log.Println("putRec error - rec is not valid json", err)
-		log.Println(string(rec))
-		return ErrBadInputData
+		bobbErr := e(ErrParseRec, "rec is not valid json", nil, rec)
+		return ErrBadInputData, bobbErr
 	}
 	key := parsedRec.GetStringBytes(keyField) // key is []byte
 	if key == nil {
-		log.Println("putRec error - key value not found or not string - ", err, keyField)
-		log.Println(string(rec))
-		return ErrBadInputData
+		bobbErr := e(ErrFldNotFound, "keyField not in rec-"+keyField, nil, rec)
+		return ErrBadInputData, bobbErr
 	}
 	for _, fld := range requiredFlds {
 		if !parsedRec.Exists(fld) {
-			log.Println("putRec error - required fld not in rec:", fld)
-			return ErrBadInputData
+			bobbErr := e(ErrFldNotFound, "required fld not found-"+fld, key, rec)
+			return ErrBadInputData, bobbErr
 		}
 	}
 	err = bkt.Put(key, rec)
 	if err != nil {
+		bobbErr := e("put failed", err.Error(), key, rec)
 		log.Println("db error - put failed", err)
+		return err, bobbErr
 	}
-	return err
+	return nil, nil
 }
 
 // putLogRec used by PutOne func to write put requests to log bkt.
@@ -83,10 +80,11 @@ func (req *PutRequest) Run(tx *bolt.Tx) (*Response, error) {
 	defer parserPool.Put(parser)
 
 	for _, rec := range req.Recs { // req.Recs is [][]byte
-		err := putRec(bkt, rec, req.KeyField, parser, req.RequiredFlds)
+		err, bErr := putRec(bkt, rec, req.KeyField, parser, req.RequiredFlds)
 		if err != nil {
 			resp.Status = StatusFail
-			resp.Msg = "Put request failed, see log for details"
+			resp.Msg = "Put request failed, see resp.Errs[0] for details"
+			resp.Errs = append(resp.Errs, *bErr)
 			return resp, err // trans will be rolled back
 		}
 		resp.PutCnt++
@@ -133,20 +131,22 @@ func (req *PutBktsRequest) Run(tx *bolt.Tx) (*Response, error) {
 
 	// -- process puts for bkt 1 -----------------------------------
 	for _, rec := range req.Recs { // req.Recs is [][]byte
-		err := putRec(bkt1, rec, req.KeyField, parser, req.RequiredFlds)
+		err, bErr := putRec(bkt1, rec, req.KeyField, parser, req.RequiredFlds)
 		if err != nil {
 			resp.Status = StatusFail
-			resp.Msg = "PutBkts request failed, see log for details"
+			resp.Msg = "PutBkts request failed, see resp.Errs[0] for details"
+			resp.Errs = append(resp.Errs, *bErr)
 			return resp, err // trans will be rolled back
 		}
 		resp.PutCnt++
 	}
 	// -- process puts for bkt 2 -----------------------------------
 	for _, rec := range req.Recs2 { // req.Recs2 is [][]byte
-		err := putRec(bkt2, rec, req.KeyField, parser, req.RequiredFlds2)
+		err, bErr := putRec(bkt2, rec, req.KeyField, parser, req.RequiredFlds2)
 		if err != nil {
 			resp.Status = StatusFail
-			resp.Msg = "PutBkts request failed, see log for details"
+			resp.Msg = "PutBkts request failed, see resp.Errs[0] for details"
+			resp.Errs = append(resp.Errs, *bErr)
 			return resp, err // trans will be rolled back
 		}
 		resp.PutCnt++
@@ -188,10 +188,11 @@ func (req *PutOneRequest) Run(tx *bolt.Tx) (*Response, error) {
 	parser := parserPool.Get()
 	defer parserPool.Put(parser)
 
-	err := putRec(bkt, req.Rec, req.KeyField, parser, req.RequiredFlds)
+	err, bErr := putRec(bkt, req.Rec, req.KeyField, parser, req.RequiredFlds)
 	if err != nil {
 		resp.Status = StatusFail
-		resp.Msg = "PutOne request failed, see log for details"
+		resp.Msg = "PutOne request failed, see resp.Errs[0] for details"
+		resp.Errs = append(resp.Errs, *bErr)
 		return resp, err // trans will be rolled back
 	}
 	if req.LogPut { // write record to log bkt
@@ -203,7 +204,7 @@ func (req *PutOneRequest) Run(tx *bolt.Tx) (*Response, error) {
 		err := putLogRec(logBkt, key, req.Rec)
 		if err != nil {
 			resp.Status = StatusFail
-			resp.Msg = "PutOne-LogPut request failed, see log for details"
+			resp.Msg = "PutOne-LogPut request failed"
 			return resp, err // trans will be rolled back
 		}
 	}
