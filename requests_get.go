@@ -37,10 +37,9 @@ func (req *GetRequest) Run(tx *bolt.Tx) (*Response, error) {
 	for _, key := range req.Keys {
 		v := bkt.Get([]byte(key))
 		if v == nil {
-			log.Println("key not found", key)
-			resp.Status = StatusWarning
-			resp.Msg = "not found"
-			continue // NOTE - THIS BEHAVIOUR MAY NOT BE APPROPRIATE FOR ALL SITUATIONS
+			resp.Status = StatusFail
+			resp.Msg = "not found, key: " + key
+			return resp, nil
 		}
 		resp.Recs = append(resp.Recs, v)
 	}
