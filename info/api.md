@@ -15,7 +15,7 @@
 * [Bucket Operations](#bucket-operations)
 * [Misc Requests](#misc-requests)
 * [Experimental Requests](#experimental-requests)
-* [Data Type Structs]
+* [Data Type Structs](#data-type-structs)
 
 -------------------------------------------------------------------------------------------------------
 See demo/demo.go for examples of all request types.
