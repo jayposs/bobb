@@ -1,12 +1,14 @@
 ## Bobb - JSON database built on [Bolt/Bbolt (etcd-io/bbolt)](https://github.com/etcd-io/bbolt)
 
-Bobb attempts to find a good balance of small code size, simplicity, speed, and usefulness. It is a thin layer on top of the key-value data store, Bolt. Understanding how Bolt works is important. For example, when using a key/index range to limit record input, requests can run at hyper speed. Bobb is easy to use, but places a lot of responsibility on the developer.  
+<img src="wheelbarrow1.jpg" width="100" height="100">
+
+Bobb attempts to find a good balance of small code size, simplicity, speed, and usefulness. It is a thin layer on top of the key-value data store, bolt/bbolt. Understanding how it works is important. For example, when using a key/index range to limit record input, requests can run at hyper speed. Bobb is easy to use, but places a lot of responsibility on the developer.  
 
 ### Documentation
 * Folder "info" contains documentation files
 * See [info/a-index.md](info/a-index.md) for description and link to each
     
-### Features
+### Key Features
 * Http Server that allows multiple programs to simultaneously access the same database
 * Client package that makes interacting with the server as easy as using an embedded db
 * Secondary Indexes
@@ -38,8 +40,8 @@ A number of "shortcut" functions are included to reduce coding. For example, bo.
 
 ### [JSON Schema](https://json-schema.org/) 
 
-I have not used it, but looks like a good way to validate json data.  
-Example Go pkg: https://github.com/kaptinlin/jsonschema.   
+JSON validation is an important consideration when loading data. I have looked into incorporating
+this functionality into Bobb, but currently think it is better to be implemented externally by the developer.  
 
 ### Performance (example elapsed clock time between request sent, response received)
 * Test system: 5yr old sff system76, Ubuntu 22.04, 25 watt 2 core/4 thread mobile processor, 8GB ram, ssd
@@ -62,32 +64,24 @@ I am pretty old and retired from a regular job. Programming is still fun but not
 
 ### History  
 
-I used the community version of MongoDB for 6 years at a medium sized company and it worked well. Because it is such a monster sized product, I always worried something would go wrong and I wouldn't have the foggiest idea what to do. It also had a ton of features that were never used.  Choosing a service like Atlas would have been easy, but there are problems with that solution.
+I used the community version of MongoDB for 6 years at a medium sized company and it worked well. Because it is such a monster sized product, I always worried something would go wrong and I wouldn't have the foggiest idea what to do. It also had a ton of features that were never used.  Choosing a service like Atlas would have been easy, but there were problems with that solution.
   
 I didn't and still don't see any "simple" database that has the features that were important to me.  
   
 Bobb did not start off as an intentional project. I began experimenting with some ideas just out of curiosity and over time, I felt like a real project had emerged. I don't consider myself to be knowledgeable enough to create a true database, but IMO Bobb is pretty cool.  
 
-### FYI - How Much Is Too Much  
+### FYI - How Much Is Too Much For Your Project 
 
 Based on the following statistics, I would assume Bobb is completely unworthy of consideration, but I post it anyway.  
 
 From SQLite web site:  
- As of version 3.42.0 (2023-05-16), the SQLite library consists of approximately 155.8 KSLOC of C code. (KSLOC means thousands of "Source Lines Of Code" or, in other words, lines of code excluding blank lines and comments.) 
+ As of version 3.42.0 (2023-05-16), the SQLite library consists of approximately 155.8 KSLOC of C code. (KSLOC means thousands of "Source Lines Of Code" or, in other words, lines of code excluding blank lines and comments.) By comparison, the project has 590 times as much test code and test scripts - 92053.1 KSLOC.  
 
 From DuckDB 1.0.0 announcement:  
 There are now over 300 000 lines of C++ engine code, over 42 000 commits and almost 4 000 issues were opened and closed again. 
 
-Checking MongoDB on Github (the underlying key-value engine, WiredTiger, is separate project):  
- -mongo/src/mongo/ - 24 sub folders  
- -mongo/src/mongo/db - aprox 400 files + 28 sub folders  
- -mongo/src/mongo/db/auth - aprox 180 files  
- -mongo/src/mongo/db/catalog - aprox 150 files  
- -mongo/src/mongo/db/exec - aprox 150 files + 4 sub folders  
- -mongo/src/mongo/db/pipeline - aprox 500 files + 6 sub folders  
- -mongo/src/mongo/db/query - aprox 250 files + 22 sub folders  
- -mongo/src/mongo/db/query/optimizer - 20 files + 4 sub folders  
- -mongo/src/mongo/db/query/optimizer/rewrites - 9 files  
+According to Gemini AI:  
+As of 2025, the MongoDB Server (the core engine) contains approximately 4 to 5 million lines of code in its primary GitHub repository. The codebase is highly complex and ...
 
 ### Using cloc Linux utility, bobb contains:
 ```
