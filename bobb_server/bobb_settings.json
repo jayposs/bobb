@@ -1,16 +1,18 @@
 {
     "dbPath": "bobb_demo.db",
     "port":   "50555",
-    "trace":  "on",
+    "trace":  "off",
     "logPath": "",
-    "compressResponse": true,
-    "maxErrs": 1000,
+    "compressResponse": false,
+    "initialRespRecsSize": 400,
+    "maxErrs": 100,
     "comments": {
 	    "dbPath": "location & name of db file",
 	    "port": "what port server listens on",
 	    "trace":" if 'on' calls to bobb.Trace will write to log",
 	    "logPath":"if set, log output will be to this file",
 	    "compressResponse": "if true, response is compressed",
+        "initialRespRecsSize": "initial size of Response.Recs slice",
         "maxErrs": "if req.ErrLimit is -1, use this as limit"
     }
 }
