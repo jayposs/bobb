@@ -111,11 +111,11 @@ func (req *QryRequest) Run(tx *bolt.Tx) (*Response, error) {
 
 	var sortRecs []SortRec
 	if len(validatedSortKeys) > 0 {
-		sortRecs = make([]SortRec, 0, DefaultQryRespSize)
+		sortRecs = make([]SortRec, 0, InitialRespRecsSize)
 	} else {
-		resp.Recs = make([][]byte, 0, DefaultQryRespSize)
+		resp.Recs = make([][]byte, 0, InitialRespRecsSize)
 	}
-	parser := parserPool.Get()
+	parser := parserPool.Get() // defined in util.go
 	defer parserPool.Put(parser)
 
 	var joinParser *fastjson.Parser // used by loadJoinValues func
@@ -245,7 +245,7 @@ func (req *QryRequest) Run(tx *bolt.Tx) (*Response, error) {
 			count = req.Top
 		}
 		resp.Recs = make([][]byte, count)
-		for i := 0; i < count; i++ {
+		for i := range count {
 			resp.Recs[i] = sortRecs[i].Value
 		}
 	}
@@ -270,7 +270,7 @@ func qrySort(sortKeys []SortKey, sortRecs []SortRec) {
 		}
 	}
 	slices.SortFunc(sortRecs, func(a, b SortRec) (n int) { // slices pkg added in Go 1.21
-		for i := 0; i < len(sortKeys); i++ {
+		for i := range sortKeys {
 			n = strings.Compare(a.SortOn[i], b.SortOn[i])
 			if n == 0 {
 				continue // sort vals match
@@ -283,13 +283,10 @@ func qrySort(sortKeys []SortKey, sortRecs []SortRec) {
 	Trace("~ qry sort done ~")
 }
 
-//var joinDefaultValue *fastjson.Value = fastjson.MustParse(`"-"`) // used when any error detected in join process
-
 // loadJoinValues adds values from a different bucket to parsed primary data record.
 // The joins parm specifies join information. See Join type for details.
 // If UseDefault true, on error, no join value(s) added to rec and no error returned.
-//
-//	Client side UnMarshal will load default (zero value) into struct join flds.
+// Client side UnMarshal will load default (zero value) into struct join flds.
 func loadJoinValues(tx *bolt.Tx, parsedRec *fastjson.Value, joins []Join, joinParser *fastjson.Parser) (recBytes []byte, bErr *BobbErr) {
 	var err error
 	var prevJoinBkt string // name of prevJoinBkt
@@ -382,6 +379,7 @@ func extractSortVals(parsedRec *fastjson.Value, sortKeys []SortKey) (sortVals []
 	return
 }
 
+// validateFindConditions validates values and loads defaults.
 func validateFindConditions(conditions []FindCondition) []FindCondition {
 	validatedConditions := make([]FindCondition, len(conditions))
 	for i, condition := range conditions {
@@ -405,6 +403,7 @@ func validateFindConditions(conditions []FindCondition) []FindCondition {
 	return validatedConditions
 }
 
+// validateSortKeys validates values and loads defaults.
 func validateSortKeys(sortKeys []SortKey) []SortKey {
 	validatedSortKeys := make([]SortKey, len(sortKeys))
 	for i, sortKey := range sortKeys {

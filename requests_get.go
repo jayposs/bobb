@@ -3,17 +3,10 @@ package bobb
 import (
 	"log"
 
-	"github.com/valyala/fastjson"
-
 	bolt "go.etcd.io/bbolt"
 )
 
-var DefaultQryRespSize = 400 // response slice initial allocation for this size
-
-var parserPool = new(fastjson.ParserPool)
-
 // GetRequest is used to get specific records by key.
-// Keys must be string values. They will be converted to []byte by Get request.
 type GetRequest struct {
 	BktName string
 	Keys    []string // keys of records to be returned
@@ -47,7 +40,6 @@ func (req *GetRequest) Run(tx *bolt.Tx) (*Response, error) {
 }
 
 // GetAllRequest returns all records in bucket or records in range between Start/End keys.
-// If start/end keys are specified, a cursor is used to establish a starting point and then reads sequentially.
 // Records are returned in key order.
 // If StartKey == EndKey, rec key prefix must match StartKey.
 // If StartKey = "", reads from beginning. If EndKey = "" reads to end.
@@ -78,7 +70,7 @@ func (req *GetAllRequest) Run(tx *bolt.Tx) (*Response, error) {
 			return resp, nil
 		}
 	}
-	resp.Recs = make([][]byte, 0, DefaultQryRespSize)
+	resp.Recs = make([][]byte, 0, InitialRespRecsSize)
 
 	var k, v []byte
 	var bErr *BobbErr
@@ -133,7 +125,7 @@ func (req *GetAllKeysRequest) Run(tx *bolt.Tx) (*Response, error) {
 	if bkt == nil {
 		return resp, nil
 	}
-	resp.Recs = make([][]byte, 0, 1000)
+	resp.Recs = make([][]byte, 0, InitialRespRecsSize)
 
 	readLoop := NewReadLoop(bkt, nil)
 	k, _, _ := readLoop.Start(req.StartKey, req.EndKey, req.Limit)
@@ -150,7 +142,6 @@ func (req *GetAllKeysRequest) Run(tx *bolt.Tx) (*Response, error) {
 }
 
 // GetOneRequest is used to get a specific record by Key.
-// Key must be string value. It will be converted to []byte by GetOne request.
 type GetOneRequest struct {
 	BktName string
 	Key     string // key of record to be returned

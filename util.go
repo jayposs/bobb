@@ -3,12 +3,17 @@ package bobb
 import (
 	"log"
 	"sync"
-	//"time"
+
+	"github.com/valyala/fastjson"
 )
 
-//const fmtTimeStamp = "20060102150405" // yyyymmddhhmmss
+var InitialRespRecsSize int // from bobb_settings.json, response.Recs slice initial allocation for this size
 
 var MaxErrs int // from bobb_settings.json, set at startup by bobb_server.go
+
+var parserPool = new(fastjson.ParserPool)
+
+//const fmtTimeStamp = "20060102150405" // yyyymmddhhmmss
 
 //func timeStamp() string {
 //	return time.Now().Format(fmtTimeStamp)
@@ -48,22 +53,5 @@ var TraceStatus GlobalVal
 func Trace(msg string) {
 	if TraceStatus.Get() == "on" {
 		log.Println(msg)
-	}
-}
-
-func AssertInt(val any) int {
-	if x, ok := val.(int); !ok {
-		log.Println("bad int type assertion", val)
-		return 0
-	} else {
-		return x
-	}
-}
-func AssertStr(val any) string {
-	if s, ok := val.(string); !ok {
-		log.Println("bad string type assertion", val)
-		return ""
-	} else {
-		return s
 	}
 }

@@ -134,7 +134,7 @@ func (req *SearchKeysRequest) Run(tx *bolt.Tx) (*Response, error) {
 	if bkt == nil {
 		return resp, nil
 	}
-	resp.Recs = make([][]byte, 0, DefaultQryRespSize)
+	resp.Recs = make([][]byte, 0, InitialRespRecsSize)
 
 	csr := bkt.Cursor()
 	var k, v []byte

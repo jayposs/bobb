@@ -21,12 +21,13 @@ import (
 )
 
 var settings struct {
-	DBPath           string `json:"dbPath"`  // location & name of db file
-	Port             string `json:"port"`    // what port server listens on
-	Trace            string `json:"trace"`   // if "on" calls to bobb.Trace will write to log
-	LogPath          string `json:"logPath"` // if not "", log output will be to this file
-	CompressResponse bool   `json:"compressResponse"`
-	MaxErrs          int    `json:"maxErrs"` // used if request ErrLimit is -1
+	DBPath              string `json:"dbPath"`              // location & name of db file
+	Port                string `json:"port"`                // what port server listens on
+	Trace               string `json:"trace"`               // if "on" calls to bobb.Trace will write to log
+	LogPath             string `json:"logPath"`             // if not "", log output will be to this file
+	CompressResponse    bool   `json:"compressResponse"`    // if true, response is compressed using gzip
+	InitialRespRecsSize int    `json:"initialRespRecsSize"` // initial size of Response.Recs slice
+	MaxErrs             int    `json:"maxErrs"`             // used if request ErrLimit is -1
 }
 var db *bolt.DB
 var logFile *os.File
@@ -139,10 +140,8 @@ func loadSettings(fileName string) {
 		}
 		log.SetOutput(logFile)
 	}
-
-	if settings.MaxErrs > 0 {
-		bobb.MaxErrs = settings.MaxErrs
-	}
+	bobb.InitialRespRecsSize = settings.InitialRespRecsSize
+	bobb.MaxErrs = settings.MaxErrs
 }
 
 // shutDown will wait 10 seconds to allow current requests to finish and block future requests.
