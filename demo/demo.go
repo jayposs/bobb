@@ -78,6 +78,8 @@ func main() {
 
 	qry7() // fld exists, value is null
 
+	qry8() // FindContainsWord, FindContains(prefix), FindContains(suffix)
+
 	putIndex() // load new index
 
 	updateIndex() // change index just loaded
@@ -653,6 +655,54 @@ func qry7() {
 		compare(original, result, "qry7 IsNull")
 	}
 	log.Println("-- qry7 done -----")
+}
+
+// -- qry8 ----------------------------
+// Uses FindContainsWord, FindContains(prefix), FindContains(suffix)
+func qry8() {
+	log.Println("-- qry8 starting -----")
+
+	//"102 Nomad Lane"
+
+	criteria1 := bo.Find(nil, "address", bobb.FindContainsWord, "Nomad")
+	criteria2 := bo.Find(nil, "address", bobb.FindContains, "...Lane")
+	criteria3 := bo.Find(nil, "address", bobb.FindContains, "102...")
+
+	req := bobb.QryRequest{BktName: locationBkt}
+
+	req.FindConditions = criteria1
+	resp, _ := bo.Run(httpClient, bobb.OpQry, req)
+	results := bo.JsonToMap(resp.Recs, Location{}) // convert resp recs to map of Location recs
+
+	log.Println("qry8 criteria1 results:\n", results)
+	if len(results) != 1 {
+		log.Fatalln("qry8 criteria1 wrong number of results")
+	}
+	if _, found := results["102"]; !found {
+		log.Fatalln("qry8 criteria1 failed")
+	}
+
+	req.FindConditions = criteria2
+	resp, _ = bo.Run(httpClient, bobb.OpQry, req)
+	results = bo.JsonToMap(resp.Recs, Location{}) // convert resp recs to map of Location recs
+	if len(results) != 1 {
+		log.Fatalln("qry8 criteria2 wrong number of results")
+	}
+	if _, found := results["102"]; !found {
+		log.Fatalln("qry8 criteria2 failed")
+	}
+
+	req.FindConditions = criteria3
+	resp, _ = bo.Run(httpClient, bobb.OpQry, req)
+	results = bo.JsonToMap(resp.Recs, Location{}) // convert resp recs to map of Location recs
+	if len(results) != 1 {
+		log.Fatalln("qry8 criteria3 wrong number of results")
+	}
+	if _, found := results["102"]; !found {
+		log.Fatalln("qry8 criteria3 failed")
+	}
+
+	log.Println("-- qry8 done -----")
 }
 
 // -- putIndex -----------------------------------------------

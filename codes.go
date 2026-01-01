@@ -49,12 +49,13 @@ var AllSortCodes = slices.Concat(StrSortCodes, IntSortCodes)
 
 // FindCondition Op Codes
 const (
-	FindContains   = "contains"      // str
-	FindMatches    = "matches"       // str
-	FindStartsWith = "startswith"    // str
-	FindBefore     = "before"        // str
-	FindAfter      = "after"         // str
-	FindInStrList  = "findinstrlist" // str
+	FindContains     = "contains"      // str - substring match ("abc...", "...abc") prefix,suffix
+	FindContainsWord = "containsword"  // str - whole word match
+	FindMatches      = "matches"       // str - exact match
+	FindStartsWith   = "startswith"    // str - prefix match
+	FindBefore       = "before"        // str - less than compare value
+	FindAfter        = "after"         // str - greater than compare value
+	FindInStrList    = "findinstrlist" // str - in list
 
 	FindLessThan    = "lessthan"      // int
 	FindGreaterThan = "greaterthan"   // int
@@ -67,7 +68,7 @@ const (
 	FindNot = true // used to set FindCondition.Not field
 )
 
-var StrFindOps = []string{FindContains, FindMatches, FindStartsWith, FindBefore, FindAfter, FindInStrList}
+var StrFindOps = []string{FindContains, FindContainsWord, FindMatches, FindStartsWith, FindBefore, FindAfter, FindInStrList}
 var IntFindOps = []string{FindLessThan, FindGreaterThan, FindEquals, FindInIntList}
 var AllFindOps = slices.Concat(StrFindOps, IntFindOps, []string{FindExists, FindIsNull})
 

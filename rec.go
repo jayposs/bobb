@@ -215,7 +215,26 @@ func parsedRecFind(parsedRec *fastjson.Value, conditions []FindCondition) (keep 
 				conditionMet = true
 			}
 		case FindContains:
+			// if compareValStr ends with "...", it's a prefix match ("abc...")
+			if prefix, prefixMatch := strings.CutSuffix(compareValStr, "..."); prefixMatch { // if compareVal ends with "...", remove it and do prefix match
+				if strings.HasPrefix(recValStr, prefix) {
+					conditionMet = true
+				}
+				break
+			}
+			// if compareValStr begins with "...", it's a suffix match ("...abc")
+			if suffix, suffixMatch := strings.CutPrefix(compareValStr, "..."); suffixMatch { // if compareVal begins with "...", remove it and do suffix match
+				if strings.HasSuffix(recValStr, suffix) {
+					conditionMet = true
+				}
+				break
+			}
 			if strings.Contains(recValStr, compareValStr) {
+				conditionMet = true
+			}
+		case FindContainsWord:
+			words := strings.Fields(recValStr)
+			if slices.Contains(words, compareValStr) {
 				conditionMet = true
 			}
 		case FindInStrList:
