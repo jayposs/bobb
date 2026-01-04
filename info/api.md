@@ -69,13 +69,14 @@ Common Request attributes.
 * IndexBkt - optional, StartKey/EndKey will refer to index keys
 * StartKey - reads begin 
 * EndKey - reads end
-* Limit - max recs returned (0 for no limit)
+* Limit - max recs (before sort) returned (0 for no limit)
 
 QryRequest adds these attributes:
 * FindConditions - selection criteria
 * SortKeys - sort order
 * JoinsBeforeFind - related values added before find step
 * JoinsAfterFind - related values added only to result recs
+* Top - limits result recs after sort
 
 The Run func is located in client/client.go.  
 It forms the URL, loads request body, sends http request, and receives response from server.  
