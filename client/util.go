@@ -94,7 +94,7 @@ func GetRecCount(httpClient *http.Client, bktName string) int {
 		log.Println("GetRecCnt Error", resp.Msg)
 		return 0
 	}
-	return resp.PutCnt
+	return resp.GetCnt
 }
 
 // Find is convenience func used to create/load []bobb.FindCondition used by qry requests.

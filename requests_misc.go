@@ -90,7 +90,7 @@ func (req *BktRequest) Run(tx *bolt.Tx) (*Response, error) {
 			resp.Msg = fmt.Sprintf("bucket %s not found", req.BktName)
 			return resp, nil
 		}
-		resp.PutCnt = bkt.Stats().KeyN
+		resp.GetCnt = bkt.Stats().KeyN
 	default:
 		resp.Status = StatusFail
 		resp.Msg = "Invalid Bkt Operation-" + op

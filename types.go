@@ -21,14 +21,15 @@ type FldFormat struct {
 // Response type is returned by all db requests.
 // Individual recs must be json.Unmarshaled into appropriate type by receiver.
 type Response struct {
-	Status  string    `json:"status"`  // constants in codes.go (StatusOk, StatusWarning, StatusFail)
-	Msg     string    `json:"msg"`     // if status is not Ok, Msg will indicate reason
-	Recs    [][]byte  `json:"recs"`    // for request responses with potentially more than 1 record
-	Rec     []byte    `json:"rec"`     // for requests that only return 1 record
-	PutCnt  int       `json:"putCnt"`  // number of records either added or replaced by Put operation
-	NextSeq []int     `json:"nextSeq"` // returned by Bkt request with Operation = "nextseq"
-	NextKey string    `json:"nextKey"` // next key in bkt after last one returned in Recs
-	Errs    []BobbErr `json:"errs"`    // errs occuring until req.ErrLimit hit
+	Status  string    // constants in codes.go (StatusOk, StatusWarning, StatusFail)
+	Msg     string    // if status is not Ok, Msg will indicate reason
+	Recs    [][]byte  // for request responses with potentially more than 1 record
+	Rec     []byte    // for requests that only return 1 record
+	PutCnt  int       // number of records either added or replaced by Put operation
+	GetCnt  int       // used for other non Put counts
+	NextSeq []int     // returned by Bkt request with Operation = "nextseq"
+	NextKey string    // next key in bkt after last one returned in Recs
+	Errs    []BobbErr // errs occuring until req.ErrLimit hit
 }
 
 type BobbErr struct {

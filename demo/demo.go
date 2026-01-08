@@ -46,6 +46,11 @@ func main() {
 
 	put() // load location and request bkts using data in maps
 
+	recCount := bo.GetRecCount(httpClient, locationBkt)
+	log.Println("---location bkt rec count: ", recCount)
+	if recCount != len(locationData) {
+		log.Fatalln("location bkt rec count incorrect")
+	}
 	copyDB() // copy open db and verify contents match
 
 	get("100", "102", "999") // get specific recs from locationBkt and compare to vals in location data map
