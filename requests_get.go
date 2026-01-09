@@ -1,15 +1,14 @@
 package bobb
 
 import (
-	"log"
-
 	bolt "go.etcd.io/bbolt"
 )
 
 // GetRequest is used to get specific records by key.
 type GetRequest struct {
-	BktName string
-	Keys    []string // keys of records to be returned
+	BktName  string
+	Keys     []string // keys of records to be returned
+	ErrLimit int      // run stops when ErrLimit exceeded
 }
 
 func (req GetRequest) IsUpdtReq() bool {
@@ -19,7 +18,6 @@ func (req GetRequest) IsUpdtReq() bool {
 func (req *GetRequest) Run(tx *bolt.Tx) (*Response, error) {
 
 	resp := new(Response)
-	resp.Status = StatusOk // may be changed to Warning below if key not found
 
 	bkt := openBkt(tx, resp, req.BktName)
 	if bkt == nil {
@@ -30,11 +28,23 @@ func (req *GetRequest) Run(tx *bolt.Tx) (*Response, error) {
 	for _, key := range req.Keys {
 		v := bkt.Get([]byte(key))
 		if v == nil {
-			resp.Status = StatusFail
-			resp.Msg = "not found, key: " + key
-			return resp, nil
+			bErr := e(ErrNotFound, "Key Not Found", []byte(key), nil)
+			resp.Errs = append(resp.Errs, *bErr)
+			if len(resp.Errs) > req.ErrLimit {
+				resp.Status = StatusFail
+				resp.Msg = "too many errors, see resp.Errs for details"
+				return resp, nil
+			}
+			continue
 		}
 		resp.Recs = append(resp.Recs, v)
+	}
+	resp.GetCnt = len(resp.Recs)
+	if len(resp.Errs) > 0 {
+		resp.Status = StatusWarning
+		resp.Msg = "see resp.Errs for details"
+	} else {
+		resp.Status = StatusOk
 	}
 	return resp, nil
 }
@@ -70,6 +80,9 @@ func (req *GetAllRequest) Run(tx *bolt.Tx) (*Response, error) {
 			return resp, nil
 		}
 	}
+	if req.ErrLimit == -1 { // see server/bobb_settings.json for MaxErrs value (defined in util.go)
+		req.ErrLimit = MaxErrs
+	}
 	resp.Recs = make([][]byte, 0, InitialRespRecsSize)
 
 	var k, v []byte
@@ -100,7 +113,13 @@ func (req *GetAllRequest) Run(tx *bolt.Tx) (*Response, error) {
 	if readLoop.NextKey != nil { // ReadLoop.NextKey is loaded by Next() at end of range.
 		resp.NextKey = string(readLoop.NextKey)
 	}
-	resp.Status = StatusOk
+	resp.GetCnt = len(resp.Recs)
+	if len(resp.Errs) > 0 {
+		resp.Status = StatusWarning
+		resp.Msg = "see resp.Errs for details"
+	} else {
+		resp.Status = StatusOk
+	}
 	return resp, nil
 }
 
@@ -137,6 +156,7 @@ func (req *GetAllKeysRequest) Run(tx *bolt.Tx) (*Response, error) {
 	if readLoop.NextKey != nil { // ReadLoop.NextKey is loaded by Next() at end of range.
 		resp.NextKey = string(readLoop.NextKey)
 	}
+	resp.GetCnt = len(resp.Recs)
 	resp.Status = StatusOk
 	return resp, nil
 }
@@ -159,12 +179,14 @@ func (req *GetOneRequest) Run(tx *bolt.Tx) (*Response, error) {
 	}
 	v := bkt.Get([]byte(req.Key))
 	if v == nil {
-		log.Println("GetOne key not found", req.Key)
-		resp.Status = StatusWarning
+		bErr := e(ErrNotFound, "Key Not Found", []byte(req.Key), nil)
+		resp.Errs = append(resp.Errs, *bErr)
+		resp.Status = StatusFail
 		resp.Msg = "not found"
 		return resp, nil
 	}
 	resp.Rec = v
+	resp.GetCnt = 1
 	resp.Status = StatusOk
 	return resp, nil
 }

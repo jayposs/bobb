@@ -53,7 +53,7 @@ func main() {
 	}
 	copyDB() // copy open db and verify contents match
 
-	get("100", "102", "999") // get specific recs from locationBkt and compare to vals in location data map
+	get("100", "102", "999", "badkey") // get specific recs from locationBkt and compare to vals in location data map
 
 	getAll() // get all recs in locationBkt and compare to location data map
 
@@ -202,21 +202,27 @@ func copyDB() {
 }
 
 // -- get ------------------------------------
-// Retrieves records with specific keys.
+// Retrieves records with specific keys. Includes "badkey" to test error handling.
 func get(recIds ...string) {
 	log.Println("-- get starting -----")
 
 	req := bobb.GetRequest{
-		BktName: locationBkt,
-		Keys:    recIds,
+		BktName:  locationBkt,
+		Keys:     recIds,
+		ErrLimit: 1,
 	}
-	resp, err := bo.Run(httpClient, bobb.OpGet, req)
-	checkResp(resp, err, "get")
-
+	resp, _ := bo.Run(httpClient, bobb.OpGet, req)
+	if resp.Status != bobb.StatusWarning {
+		log.Fatalln("get status should be warning")
+	}
+	log.Println(resp.Errs[0].ErrCode, string(resp.Errs[0].Key))
 	results := bo.JsonToMap(resp.Recs, Location{}) // convert resp recs to map of Location recs
 
 	// confirm results match desired results
 	for _, id := range recIds {
+		if id == "badkey" {
+			continue
+		}
 		original := locationData[id]
 		result := results[id]
 		compare(original, result, "get")
