@@ -189,7 +189,7 @@ func (req *QryRequest) Run(tx *bolt.Tx) (*Response, error) {
 			keep = true // no find conditions, all recs meet criteria
 		}
 		if !keep && len(req.FindOrConditions) > 0 {
-			keep, bErr = parsedRecFind(parsedRec, req.FindOrConditions)
+			keep, bErr = parsedRecFind(parsedRec, validatedFindOrConditions)
 			if bErr != nil {
 				bErr.Key, bErr.Val = k, v
 				resp.Errs = append(resp.Errs, *bErr)

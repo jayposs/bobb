@@ -392,7 +392,7 @@ func getAllLimit() {
 }
 
 // -- qry1 --------------------------------------
-// Returns records meeting find conditions in sorted order
+// Returns records meeting Find or FindOr Conditions in sorted order
 func qry1() {
 	log.Println("-- qry1 starting -----")
 
@@ -404,12 +404,15 @@ func qry1() {
 	req := bobb.QryRequest{
 		BktName:        locationBkt,
 		FindConditions: criteria,
-		SortKeys:       sortKeys,
+		FindOrConditions: []bobb.FindCondition{
+			{Fld: "zip", Op: bobb.FindMatches, ValStr: "11111"},
+		},
+		SortKeys: sortKeys,
 	}
 	resp, err := bo.Run(httpClient, bobb.OpQry, req)
 	checkResp(resp, err, "qry1")
 
-	matchingIds := []string{"104", "102", "103"} // resp recs should be in same order
+	matchingIds := []string{"104", "102", "103", "100"} // resp recs should be in same order
 	if len(resp.Recs) != len(matchingIds) {
 		log.Fatalln("qry1 wrong number of resp recs-", len(resp.Recs))
 	}
