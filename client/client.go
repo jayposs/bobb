@@ -25,6 +25,8 @@ var (
 // Used by client Go programs to interact with db.
 func Run(httpClient *http.Client, op string, payload any) (*bobb.Response, error) {
 
+	var requestFailed bool
+
 	reqUrl := BaseURL + op
 
 	jsonContent, err := json.Marshal(&payload) // -> []byte
@@ -55,9 +57,13 @@ func Run(httpClient *http.Client, op string, payload any) (*bobb.Response, error
 		return nil, err
 	}
 	defer func() {
+		if requestFailed {
+			io.Copy(io.Discard, httpResp.Body) // drain body to allow connection reuse
+		}
 		httpResp.Body.Close()
 	}()
 	if httpResp.StatusCode != http.StatusOK {
+		requestFailed = true
 		log.Println("Request Failed, Status:", httpResp.Status)
 		if httpResp.StatusCode == http.StatusNotFound {
 			log.Println("verify op code specified in Run call is valid:", op, reqUrl)
@@ -75,6 +81,7 @@ func Run(httpClient *http.Client, op string, payload any) (*bobb.Response, error
 		result, err = io.ReadAll(httpResp.Body)
 	}
 	if err != nil {
+		requestFailed = true
 		log.Println("Read Http Response.Body Failed:", err)
 		return nil, err
 	}
