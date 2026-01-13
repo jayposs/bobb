@@ -85,6 +85,8 @@ func main() {
 
 	qry8() // FindContainsWord, FindContains(prefix), FindContains(suffix)
 
+	qry9() // count of recs matching criteria
+
 	putIndex() // load new index
 
 	updateIndex() // change index just loaded
@@ -717,6 +719,28 @@ func qry8() {
 	}
 
 	log.Println("-- qry8 done -----")
+}
+
+// -- qry9 ----------------------------------------
+// Returns count of records meeting Find conditions
+func qry9() {
+	log.Println("-- qry9 starting -----")
+
+	criteria := bo.Find(nil, "zip", bobb.FindStartsWith, "54")
+
+	req := bobb.QryRequest{
+		BktName:        locationBkt,
+		FindConditions: criteria,
+		CountOnly:      true,
+	}
+	resp, err := bo.Run(httpClient, bobb.OpQry, req)
+	checkResp(resp, err, "qry9")
+
+	log.Println("qry9 resp.Recs len-", len(resp.Recs))
+	if resp.GetCnt != 3 {
+		log.Fatalln("qry9 count incorrect-", resp.GetCnt)
+	}
+	log.Println("-- qry9 done -----")
 }
 
 // -- putIndex -----------------------------------------------
