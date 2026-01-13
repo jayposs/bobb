@@ -80,6 +80,8 @@ func main() {
 // Parm req is pointer to request type which implements bobb.Request interface.
 func process(op string, req bobb.Request, w http.ResponseWriter, r *http.Request) {
 
+	defer r.Body.Close()
+
 	if bobb.ServerStatus.Get() != "running" {
 		http.Error(w, "server not accepting requests", http.StatusServiceUnavailable)
 		return
