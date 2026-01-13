@@ -13,9 +13,9 @@ type Request interface {
 // Strings - padded to right with spaces or truncated as needed.
 // Ints - leading zeros added as needed.
 type FldFormat struct {
-	FldName string `json:"fldName"` // name of fld in record
-	FldType string `json:"fldType"` // "string" or "int"
-	Length  int    `json:"length"`  // output length of value
+	FldName string // name of fld in record
+	FldType string // "string" or "int"
+	Length  int    // output length of value
 }
 
 // Response type is returned by all db requests.
