@@ -8,6 +8,8 @@
 
 [Code Guide](code_guide.txt) - list of Go files with descriptions
 
+[Change Log](change_log.txt) - date & description of changes
+
 [Customize](customize.txt) - how to add your own requests to Bobb
 
 [Server Setup](server_setup.txt) - instructions on setting up linux server (DigitalOcean)

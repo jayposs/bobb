@@ -1,0 +1,7 @@
+Change Log (1st entry 2026-01-12)
+
+2026-01-12 - Add CountOnly option to QryRequest
+    Returns the number of records that would be returned using qry key range and FindConditions.
+    The Response field, GetCnt, contains the value.
+    Files Affected:
+        requests_qry.go
