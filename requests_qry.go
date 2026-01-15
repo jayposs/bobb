@@ -60,7 +60,7 @@ type QryRequest struct {
 	ErrLimit         int             // run stops when ErrLimit exceeded, default 0, settings.MaxErrs limit if -1
 	JoinsBeforeFind  []Join          // joined values can be used in find step (adds processing time)
 	JoinsAfterFind   []Join          // joined values can be used for sort step but not find step
-	CountOnly        bool            // if true, only count of matching recs returned in Response.GetCnt
+	CountOnly        bool            // if true, Response.Recs is nil, count in Response.GetCnt
 }
 
 func (req QryRequest) IsUpdtReq() bool {
@@ -250,8 +250,8 @@ func (req *QryRequest) Run(tx *bolt.Tx) (*Response, error) {
 			resp.Recs[i] = sortRecs[i].Value
 		}
 	}
+	resp.GetCnt = len(resp.Recs)
 	if req.CountOnly {
-		resp.GetCnt = len(resp.Recs)
 		resp.Recs = nil // clear recs
 	}
 	if len(resp.Errs) > 0 {
