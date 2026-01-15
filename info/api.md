@@ -4,6 +4,7 @@
 * [Client Programs](#client-programs)
 * [Codes](#codes)
 * [Requests](#requests)
+* [Put Request](#put-request)
 * [Keys](#keys)
 * [Start/End Keys](#start-end-keys)
 * [ShortCut Funcs](#shortcut-funcs)
@@ -115,6 +116,37 @@ When loading a large number of records, group records into batches. Load each ba
 with a separate Go routine. See bulkload/bulkload.go for template pgm.
   
 **NOTE** - Put operations will create the bkt if it does not already exist  
+
+-------------------------------------------------------------------------------------------------------
+### Put Request
+
+Adds or replaces records depending on existence of key.  
+
+```
+type PutRequest struct {
+	BktName      string
+	KeyField     string   // field in Rec containing value to be used as key
+	Recs         [][]byte // records to be added or replaced in db
+	RequiredFlds []string // recs must include these fields (optional)
+	AddKeySuffix bool     // if true, add bkt NextSeq# to end of key
+}
+```
+The KeyField attribute is required. This field must exist in every record and its value will be used as the Key. 
+The value of this field must be of type string. A typical KeyField name would be "id".
+
+Recs would normally be a slice of json marshalled structs. Use client.SliceToJson() func to create.  
+  
+RequiredFlds is optional list of field names that must exist in each record or the PutRequest will return an error. These fields must be at the top level, not in sub structs (although fastjson does support sub field access). The KeyField (typically "id"), need not be in the list.  
+
+If true, AddKeySuffix, will indicate for a suffix to be appended to each KeyField value.
+This suffix is based on the Bucket's NextSequence number, a unique auto incrementing integer.  
+The width of the suffix id is determined by KeySuffixWidth located in bobb_settings.json file.   
+For example: NextSeq# is 788 and KeySuffixWidth is 8: key suffix will be: 00000788.  
+**WARNING** AddKeySuffix is for adding records only.
+
+The updated key value will be changed in the record's id field and used as the entry Key. 
+
+Updated key values are returned in Response.Recs. 
 
 -------------------------------------------------------------------------------------------------------
 ### Keys

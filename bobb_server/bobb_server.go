@@ -28,6 +28,7 @@ var settings struct {
 	CompressResponse    bool   `json:"compressResponse"`    // if true, response is compressed using gzip
 	InitialRespRecsSize int    `json:"initialRespRecsSize"` // initial size of Response.Recs slice
 	MaxErrs             int    `json:"maxErrs"`             // used if request ErrLimit is -1
+	KeySuffixWidth      int    `json:"KeySuffixWidth"`      // width of zero-padded suffix for keys, see PutRequest.AddKeySuffix
 }
 var db *bolt.DB
 var logFile *os.File
@@ -144,6 +145,7 @@ func loadSettings(fileName string) {
 	}
 	bobb.InitialRespRecsSize = settings.InitialRespRecsSize
 	bobb.MaxErrs = settings.MaxErrs
+	bobb.KeySuffixWidth = settings.KeySuffixWidth
 }
 
 // shutDown will wait 10 seconds to allow current requests to finish and block future requests.

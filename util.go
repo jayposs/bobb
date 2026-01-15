@@ -9,6 +9,8 @@ import (
 
 var InitialRespRecsSize int // from bobb_settings.json, response.Recs slice initial allocation for this size
 
+var KeySuffixWidth int // from bobb_settings.json, set at startup by bobb_server.go, used in Put requests with AddKeySuffix true
+
 var MaxErrs int // from bobb_settings.json, set at startup by bobb_server.go
 
 var parserPool = new(fastjson.ParserPool)

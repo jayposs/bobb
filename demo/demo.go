@@ -43,6 +43,7 @@ func main() {
 	bo.DeleteBkt(httpClient, locationBkt) // using shortcut func in client pkg
 	bo.CreateBkt(httpClient, locationBkt) // optional step, bkt would be auto created on 1st Put
 	bo.DeleteBkt(httpClient, locationLogBkt)
+	bo.DeleteBkt(httpClient, requestBkt)
 
 	put() // load location and request bkts using data in maps
 
@@ -106,6 +107,8 @@ func main() {
 	export()
 	putBkts()  // new feature added May 1, 2024
 	qryJoin1() // new feature added Oct 17, 2024
+
+	putAddKeySuffix() // test put with AddKeySuffix option
 
 	bktList := bo.GetBktList(httpClient) // get list of all db buckets
 	bkts := []string{"location", "location_log", "location_zip_index", "request", "qry5", "order", "order_item"}
@@ -1120,6 +1123,48 @@ func qryJoin1() {
 		}
 	}
 	log.Println("-- qryJoin1 done -----")
+}
+
+// -- putAddKeysuffix -------------------------------------
+// Put records with key suffix auto added by PutRequest, uses Bkt's nextseq value.
+func putAddKeySuffix() {
+	log.Println("-- putAddKeysuffix starting -----")
+
+	var newRecs = []Location{
+		{Id: "beaver", St: "UT", City: "Beaver", Address: "1 Main St"},
+		{Id: "fox", St: "UT", City: "RedTail", Address: "28 Trout Rd"},
+	}
+	jsonRecs := bo.SliceToJson(newRecs)
+
+	req := bobb.PutRequest{
+		BktName:      requestBkt,
+		KeyField:     "id",
+		Recs:         jsonRecs,
+		AddKeySuffix: true,
+	}
+	resp, err := bo.Run(httpClient, bobb.OpPut, req)
+	checkResp(resp, err, "putAddKeysuffix")
+
+	// keys are returned in resp.Recs, verify key suffixes have been added correctly.
+	for _, keyUsed := range resp.Recs {
+		log.Println(string(keyUsed))
+	}
+
+	req2 := bobb.GetRequest{
+		BktName: requestBkt,
+		Keys:    []string{"beaver00000001", "fox00000002"},
+	}
+	resp2, _ := bo.Run(httpClient, bobb.OpGet, req2)
+	results := bo.JsonToMap(resp2.Recs, Location{}) // convert resp recs to slice of Location recs
+
+	// confirm results match desired results
+	for k, v := range results {
+		log.Println(k, v)
+	}
+	if results["beaver00000001"].City != "Beaver" || results["fox00000002"].City != "RedTail" {
+		log.Fatalln("putAddKeysuffix failed, records not found with correct keys")
+	}
+	log.Println("-- putAddKeysuffix done -----")
 }
 
 // --------------------------------------------------------------

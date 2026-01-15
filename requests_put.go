@@ -1,7 +1,9 @@
 package bobb
 
 import (
+	"fmt"
 	"log"
+	"strconv"
 	"time"
 
 	"github.com/valyala/fastjson"
@@ -11,30 +13,49 @@ import (
 // putRec used by Put, PutBkts, PutOne funcs.
 // It adds or replaces a record in the bkt based on existence of key.
 // The value of keyField is used as the record key and this field must exist in rec.
-func putRec(bkt *bolt.Bucket, rec []byte, keyField string, parser *fastjson.Parser, requiredFlds []string) (error, *BobbErr) {
+// Returns BadInputData/DB Error, *BobbError, record key loaded.
+func putRec(bkt *bolt.Bucket, rec []byte, keyField string, parser *fastjson.Parser, requiredFlds []string, AddKeySuffix bool) (error, *BobbErr, []byte) {
 	parsedRec, err := parser.ParseBytes(rec)
 	if err != nil {
-		bobbErr := e(ErrParseRec, "rec is not valid json", nil, rec)
-		return ErrBadInputData, bobbErr
+		bobbErr := e(ErrParseRec, err.Error(), nil, rec)
+		err = ErrBadInputData
+		return err, bobbErr, nil
 	}
 	key := parsedRec.GetStringBytes(keyField) // key is []byte
 	if key == nil {
 		bobbErr := e(ErrFldNotFound, "keyField not in rec-"+keyField, nil, rec)
-		return ErrBadInputData, bobbErr
+		err = ErrBadInputData
+		return err, bobbErr, nil
 	}
 	for _, fld := range requiredFlds {
 		if !parsedRec.Exists(fld) {
 			bobbErr := e(ErrFldNotFound, "required fld not found-"+fld, key, rec)
-			return ErrBadInputData, bobbErr
+			err = ErrBadInputData
+			return err, bobbErr, nil
 		}
+	}
+	// if AddKeySuffix, add bkt NextSeq# to end of key
+	if AddKeySuffix {
+		seqNo, err := bkt.NextSequence()
+		if err != nil {
+			log.Println("bkt.NextSequence failed -", err)
+			return err, nil, nil
+		}
+		format := "%." + strconv.Itoa(KeySuffixWidth) + "d" // ex. convert 123 to 00000123
+		suffix := fmt.Sprintf(format, seqNo)
+
+		key = append(key, []byte(suffix)...)
+		fastKey, _ := fastjson.Parse(`"` + string(key) + `"`) // create *fastjson.Value, to update parsedRec with new key
+		parsedRec.Set(keyField, fastKey)
+		rec = parsedRec.MarshalTo(nil) // set rec to updated marshaled value, []byte
 	}
 	err = bkt.Put(key, rec)
 	if err != nil {
 		bobbErr := e("put failed", err.Error(), key, rec)
 		log.Println("db error - put failed", err)
-		return err, bobbErr
+		return err, bobbErr, nil
 	}
-	return nil, nil
+	return nil, nil, key
 }
 
 // putLogRec used by PutOne func to write put requests to log bkt.
@@ -59,6 +80,7 @@ type PutRequest struct {
 	KeyField     string   // field in Rec containing value to be used as key
 	Recs         [][]byte // records to be added or replaced in db
 	RequiredFlds []string // recs must include these fields (optional)
+	AddKeySuffix bool     // if true, add bkt NextSeq# to end of key
 }
 
 func (req PutRequest) IsUpdtReq() bool {
@@ -79,14 +101,17 @@ func (req *PutRequest) Run(tx *bolt.Tx) (*Response, error) {
 	parser := parserPool.Get()
 	defer parserPool.Put(parser)
 
+	resp.Recs = make([][]byte, 0, len(req.Recs)) // loaded with keys used by putRec()
+
 	for _, rec := range req.Recs { // req.Recs is [][]byte
-		err, bErr := putRec(bkt, rec, req.KeyField, parser, req.RequiredFlds)
+		err, bErr, keyUsed := putRec(bkt, rec, req.KeyField, parser, req.RequiredFlds, req.AddKeySuffix)
 		if err != nil {
 			resp.Status = StatusFail
 			resp.Msg = "Put request failed, see resp.Errs[0] for details"
 			resp.Errs = append(resp.Errs, *bErr)
 			return resp, err // trans will be rolled back
 		}
+		resp.Recs = append(resp.Recs, keyUsed)
 		resp.PutCnt++
 	}
 	resp.Status = StatusOk
@@ -131,7 +156,7 @@ func (req *PutBktsRequest) Run(tx *bolt.Tx) (*Response, error) {
 
 	// -- process puts for bkt 1 -----------------------------------
 	for _, rec := range req.Recs { // req.Recs is [][]byte
-		err, bErr := putRec(bkt1, rec, req.KeyField, parser, req.RequiredFlds)
+		err, bErr, _ := putRec(bkt1, rec, req.KeyField, parser, req.RequiredFlds, false)
 		if err != nil {
 			resp.Status = StatusFail
 			resp.Msg = "PutBkts request failed, see resp.Errs[0] for details"
@@ -142,7 +167,7 @@ func (req *PutBktsRequest) Run(tx *bolt.Tx) (*Response, error) {
 	}
 	// -- process puts for bkt 2 -----------------------------------
 	for _, rec := range req.Recs2 { // req.Recs2 is [][]byte
-		err, bErr := putRec(bkt2, rec, req.KeyField, parser, req.RequiredFlds2)
+		err, bErr, _ := putRec(bkt2, rec, req.KeyField, parser, req.RequiredFlds2, false)
 		if err != nil {
 			resp.Status = StatusFail
 			resp.Msg = "PutBkts request failed, see resp.Errs[0] for details"
@@ -188,7 +213,7 @@ func (req *PutOneRequest) Run(tx *bolt.Tx) (*Response, error) {
 	parser := parserPool.Get()
 	defer parserPool.Put(parser)
 
-	err, bErr := putRec(bkt, req.Rec, req.KeyField, parser, req.RequiredFlds)
+	err, bErr, _ := putRec(bkt, req.Rec, req.KeyField, parser, req.RequiredFlds, false)
 	if err != nil {
 		resp.Status = StatusFail
 		resp.Msg = "PutOne request failed, see resp.Errs[0] for details"
