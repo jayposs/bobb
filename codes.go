@@ -118,3 +118,11 @@ const (
 	FldTypeStr = "string"
 	FldTypeInt = "int"
 )
+
+// PutRequest IndexOption Codes (IndexingNormal default) used in PutRequest
+
+const (
+	IndexingNormal   = "normal"   // adds and updates to index bkts (most processing)
+	IndexingOff      = "off"      // no adds or updates to index bkts
+	IndexingNoUpdate = "noupdate" // no updates to index bkts, only adds (no checks for index already existing for data key)
+)
