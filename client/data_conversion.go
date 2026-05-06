@@ -1,6 +1,3 @@
-// Generic funcs for converting data between jsonRecs [][]byte to map[string]DBRec
-// and jsonRecs to []DBRec,, []DBRec to jsonRecs, and map[string]DBRec to jsonRecs.
-
 package client
 
 import (
@@ -8,7 +5,11 @@ import (
 	"log"
 )
 
-// Record Types using these funcs must implement DBRec interface.
+// Generic funcs for converting data between jsonRecs [][]byte to map[string]DBRec
+// and jsonRecs to []DBRec,, []DBRec to jsonRecs, and map[string]DBRec to jsonRecs.
+
+// NOTE - Record Types using these funcs must implement DBRec interface.
+
 type DBRec interface {
 	RecId() string
 }
@@ -39,9 +40,11 @@ func JsonToSlice[T DBRec](jsonRecs [][]byte, dbRec T) []T {
 	var emptyRec T // required to deal with slices/maps in recs, rec = T{} does not work.
 	for i, jsonRec := range jsonRecs {
 		if err := json.Unmarshal(jsonRec, &rec); err != nil {
-			log.Println("JsonToSlice - json.Unmarshal error", err)
+			log.Println("JsonToSlice - json.Unmarshal error", err, "check for non-printable characters") // likely cause is non printable char such as tab (\t)
+			log.Println(string(jsonRec))
 			return nil
 		}
+
 		response[i] = rec
 		rec = emptyRec
 	}

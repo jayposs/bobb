@@ -1,5 +1,11 @@
 package bobb
 
+/*
+QryRequest is used to filter and sort records from a bucket.
+Data records must be json objects.
+See QryRequest type for details.
+*/
+
 import (
 	"fmt"
 	"log"
@@ -34,6 +40,8 @@ type FindCondition struct {
 	StrOption  string   // controls string conversion, see Str* codes in codes.go, default StrLowerCase
 }
 
+type FindGroup []FindCondition // QryRequest can have multiple FindGroups that are ORed together
+
 type Join struct {
 	JoinBkt    string // name of related bkt where value is pulled from
 	JoinFld    string // fld in primary rec containing key value of join rec
@@ -43,24 +51,21 @@ type Join struct {
 }
 
 // QryRequest is used to filter and sort recs from a bkt.
-// IndexBkt specifies optional index.
 // Start/End keys define range of keys to read.
-// Recs must meet all FindConditions or all FindOrConditions.
 // If StartKey == EndKey, key prefix must match StartKey.
 type QryRequest struct {
-	BktName          string          // primary data bkt
-	IndexBkt         string          // optional index, start/end keys use index
-	FindConditions   []FindCondition // select criteria
-	FindOrConditions []FindCondition // "or" criteria
-	SortKeys         []SortKey       // defines sort order, if omitted ressults returned in key order
-	StartKey         string          // begin range, 1st key >=
-	EndKey           string          // end range, last key <=
-	Limit            int             // limits results before sort step
-	Top              int             // limits results after sort step
-	ErrLimit         int             // run stops when ErrLimit exceeded, default 0, settings.MaxErrs limit if -1
-	JoinsBeforeFind  []Join          // joined values can be used in find step (adds processing time)
-	JoinsAfterFind   []Join          // joined values can be used for sort step but not find step
-	CountOnly        bool            // if true, Response.Recs is nil, count in Response.GetCnt
+	BktName         string      // primary data bkt
+	IndexBkt        string      // optional index bkt name, start/end keys use index
+	Criteria        []FindGroup // if a record meets all conditions in any FindGroup, it is included in results
+	SortKeys        []SortKey   // defines sort order, if omitted ressults returned in key order
+	StartKey        string      // begin range, 1st key >=
+	EndKey          string      // end range, last key <=
+	Limit           int         // limits results before sort step
+	Top             int         // limits results after sort step
+	ErrLimit        int         // run stops when ErrLimit exceeded, default 0, settings.MaxErrs limit if -1
+	JoinsBeforeFind []Join      // joined values can be used in find step (adds processing time)
+	JoinsAfterFind  []Join      // joined values can be used for sort step but not find step
+	CountOnly       bool        // if true, Response.Recs is nil, count in Response.GetCnt
 }
 
 func (req QryRequest) IsUpdtReq() bool {
@@ -88,25 +93,27 @@ func (req *QryRequest) Run(tx *bolt.Tx) (*Response, error) {
 			return resp, nil
 		}
 	}
+	var err error
 
-	var validatedFindConditions []FindCondition
-	// validate and set defaults
-	if validatedFindConditions = validateFindConditions(req.FindConditions); validatedFindConditions == nil {
-		resp.Status = StatusFail
-		resp.Msg = "invalid FindConditions"
-		return resp, nil
+	var validatedCriteria []FindGroup
+	if len(req.Criteria) > 0 {
+		validatedCriteria = make([]FindGroup, len(req.Criteria))
+		for i, group := range req.Criteria {
+			validatedCriteria[i], err = validateFindConditions(group)
+			if err != nil {
+				resp.Status = StatusFail
+				resp.Msg = fmt.Sprintf("invalid Criteria group %d - %s", i, err.Error())
+				return resp, nil
+			}
+		}
 	}
-	var validatedFindOrConditions []FindCondition
-	if validatedFindOrConditions = validateFindConditions(req.FindOrConditions); validatedFindOrConditions == nil {
-		resp.Status = StatusFail
-		resp.Msg = "invalid FindOrConditions"
-		return resp, nil
-	}
+
 	var validatedSortKeys []SortKey
 	// validate and set defaults
-	if validatedSortKeys = validateSortKeys(req.SortKeys); validatedSortKeys == nil {
+	validatedSortKeys, err = validateSortKeys(req.SortKeys)
+	if err != nil {
 		resp.Status = StatusFail
-		resp.Msg = "invalid SortKeys"
+		resp.Msg = "invalid SortKeys- " + err.Error()
 		return resp, nil
 	}
 
@@ -129,7 +136,6 @@ func (req *QryRequest) Run(tx *bolt.Tx) (*Response, error) {
 		req.ErrLimit = MaxErrs
 	}
 
-	var err error
 	var parsedRec *fastjson.Value
 	var bErr *BobbErr
 	var keep bool // used to indicate if rec meets either FindConditions, FindOrConditions
@@ -177,26 +183,21 @@ func (req *QryRequest) Run(tx *bolt.Tx) (*Response, error) {
 			}
 		}
 
-		// determine if record meets all FindConditions or FindOrConditions
-		if len(req.FindConditions) > 0 {
-			keep, bErr = parsedRecFind(parsedRec, validatedFindConditions)
-			if bErr != nil {
-				bErr.Key, bErr.Val = k, v
-				resp.Errs = append(resp.Errs, *bErr)
-				k, v, bErr = readLoop.Next()
-				continue
-			}
+		if len(validatedCriteria) == 0 {
+			keep = true // no criteria, all recs meet criteria
 		} else {
-			keep = true // no find conditions, all recs meet criteria
-		}
-		if !keep && len(req.FindOrConditions) > 0 {
-			keep, bErr = parsedRecFind(parsedRec, validatedFindOrConditions)
-			if bErr != nil {
-				bErr.Key, bErr.Val = k, v
-				resp.Errs = append(resp.Errs, *bErr)
-				k, v, bErr = readLoop.Next()
-				continue
+			for _, findGroup := range validatedCriteria {
+				keep, bErr = parsedRecFind(parsedRec, findGroup)
+				if bErr != nil || keep { // if error or rec meets criteria, no need to check other findGroups
+					break
+				}
 			}
+		}
+		if bErr != nil {
+			bErr.Key, bErr.Val = k, v
+			resp.Errs = append(resp.Errs, *bErr)
+			k, v, bErr = readLoop.Next()
+			continue
 		}
 		if !keep {
 			k, v, bErr = readLoop.Next()
@@ -239,10 +240,8 @@ func (req *QryRequest) Run(tx *bolt.Tx) (*Response, error) {
 
 	if len(validatedSortKeys) > 0 {
 		qrySort(validatedSortKeys, sortRecs)
-		var count int
-		if req.Top == 0 {
-			count = len(sortRecs)
-		} else {
+		count := len(sortRecs)
+		if req.Top > 0 && req.Top < count {
 			count = req.Top
 		}
 		resp.Recs = make([][]byte, count)
@@ -372,7 +371,9 @@ func extractSortVals(parsedRec *fastjson.Value, sortKeys []SortKey) (sortVals []
 			sortVal, bErr = parsedRecGetStr(parsedRec, sortKey.Fld, sortKey.UseDefault, StrPlain)
 		case slices.Contains(IntSortCodes, sortKey.Dir):
 			intVal, bErr = parsedRecGetInt(parsedRec, sortKey.Fld, sortKey.UseDefault)
-			sortVal = fmt.Sprintf("%015d", intVal) // converts 3456 to 000000000003456
+			// note - underscores are ignored in numeric literals, added for readability, negative values will sort correctly with this approach
+			// allows for sorting of int values as strings while preserving numeric order
+			sortVal = fmt.Sprintf("%020d", intVal+1_000_000_000_000_000_000) // converts 3456 to 100000000000003456
 		default:
 			log.Panicln("invalid sortkey dir", sortKey.Dir) // should already be validated
 		}
@@ -385,43 +386,68 @@ func extractSortVals(parsedRec *fastjson.Value, sortKeys []SortKey) (sortVals []
 }
 
 // validateFindConditions validates values and loads defaults.
-func validateFindConditions(conditions []FindCondition) []FindCondition {
+func validateFindConditions(conditions []FindCondition) ([]FindCondition, error) {
 	validatedConditions := make([]FindCondition, len(conditions))
 	for i, condition := range conditions {
 		if !slices.Contains(AllFindOps, condition.Op) {
-			return nil
+			return nil, fmt.Errorf("invalid find operation: %s", condition.Op)
 		}
 		if condition.StrOption == "" {
 			condition.StrOption = StrLowerCase
 		}
 		if !slices.Contains(AllStrOptions, condition.StrOption) {
-			return nil
+			return nil, fmt.Errorf("invalid string option: %s", condition.StrOption)
 		}
 		if condition.UseDefault == "" {
 			condition.UseDefault = DefaultAlways
 		}
 		if !slices.Contains(AllDefaultCodes, condition.UseDefault) {
-			return nil
+			return nil, fmt.Errorf("invalid default code: %s", condition.UseDefault)
 		}
+		if condition.Op == FindInStrList && len(condition.StrList) == 0 {
+			return nil, fmt.Errorf("FindInStrList has empty string list")
+		}
+		if condition.Op == FindInIntList && len(condition.IntList) == 0 {
+			return nil, fmt.Errorf("FindInIntList has empty integer list")
+		}
+		if condition.StrOption == StrLowerCase {
+			condition.ValStr = strings.ToLower(condition.ValStr)
+			for i, s := range condition.StrList {
+				condition.StrList[i] = strings.ToLower(s)
+			}
+		}
+		if condition.StrOption == StrPlain {
+			condition.ValStr = PlainString(condition.ValStr)
+			for i, s := range condition.StrList {
+				condition.StrList[i] = PlainString(s)
+			}
+		}
+
 		validatedConditions[i] = condition
 	}
-	return validatedConditions
+	return validatedConditions, nil
 }
 
 // validateSortKeys validates values and loads defaults.
-func validateSortKeys(sortKeys []SortKey) []SortKey {
+func validateSortKeys(sortKeys []SortKey) ([]SortKey, error) {
 	validatedSortKeys := make([]SortKey, len(sortKeys))
 	for i, sortKey := range sortKeys {
+		if sortKey.Fld == "" {
+			return nil, fmt.Errorf("SortKey missing Fld")
+		}
+		if sortKey.Dir == "" {
+			return nil, fmt.Errorf("SortKey.Dir is not set for fld %s", sortKey.Fld)
+		}
 		if !slices.Contains(AllSortCodes, sortKey.Dir) {
-			return nil
+			return nil, fmt.Errorf("invalid SortKey.Dir: %s, for fld %s", sortKey.Dir, sortKey.Fld)
 		}
 		if sortKey.UseDefault == "" {
 			sortKey.UseDefault = DefaultAlways
 		}
 		if !slices.Contains(AllDefaultCodes, sortKey.UseDefault) {
-			return nil
+			return nil, fmt.Errorf("invalid SortKey.UseDefault: %s, for fld %s", sortKey.UseDefault, sortKey.Fld)
 		}
 		validatedSortKeys[i] = sortKey
 	}
-	return validatedSortKeys
+	return validatedSortKeys, nil
 }

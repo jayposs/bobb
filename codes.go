@@ -7,22 +7,30 @@ import (
 
 var ErrBadInputData error = errors.New("data error - bad json or no key") // used by put funcs when input data has problems
 
+// misc codes
+const (
+	LogPut = true // used for PutParm.LogPut field, indicates record should be written to put log bkt
+)
+
 // Request Operations
 const (
-	OpBkt        = "bkt"
-	OpGet        = "get"
-	OpGetOne     = "getone"
-	OpGetAll     = "getall"
-	OpGetAllKeys = "getallkeys"
-	OpQry        = "qry"
-	OpPut        = "put"
-	OpPutOne     = "putone"
-	OpPutBkts    = "putbkts"
-	OpPutIndex   = "putindex"
-	OpDelete     = "delete"
-	OpExport     = "export"
-	OpClose      = "close"
-	OpCopyDB     = "copydb"
+	OpBkt          = "bkt"
+	OpGet          = "get"
+	OpGetOne       = "getone"
+	OpGetAll       = "getall"
+	OpGetAllKeys   = "getallkeys"
+	OpQry          = "qry"
+	OpPut          = "put"
+	OpPutOne       = "putone"
+	OpPutBkts      = "putbkts"
+	OpPutIndex     = "putindex"
+	OpDelete       = "delete"
+	OpVerifyIndex  = "verifyindex"
+	OpIndexSetting = "indexsetting"
+	OpIndexRequest = "indexrequest"
+	OpExport       = "export"
+	OpClose        = "close"
+	OpCopyDB       = "copydb"
 )
 
 // Response Status Values
@@ -49,18 +57,19 @@ var AllSortCodes = slices.Concat(StrSortCodes, IntSortCodes)
 
 // FindCondition Op Codes
 const (
-	FindContains     = "contains"      // str - substring match ("abc...", "...abc") prefix,suffix
-	FindContainsWord = "containsword"  // str - whole word match
-	FindMatches      = "matches"       // str - exact match
-	FindStartsWith   = "startswith"    // str - prefix match
-	FindBefore       = "before"        // str - less than compare value
-	FindAfter        = "after"         // str - greater than compare value
-	FindInStrList    = "findinstrlist" // str - in list
+	FindContains     = "contains"     // str - substring match
+	FindContainsWord = "containsword" // str - whole word match
+	FindMatches      = "matches"      // str - exact match
+	FindStartsWith   = "startswith"   // str - prefix match
+	FindEndsWith     = "endswith"     // str - suffix match
+	FindBefore       = "before"       // str - less than compare value
+	FindAfter        = "after"        // str - greater than compare value
+	FindInStrList    = "instrlist"    // str - in list
 
-	FindLessThan    = "lessthan"      // int
-	FindGreaterThan = "greaterthan"   // int
-	FindEquals      = "equals"        // int
-	FindInIntList   = "findinintlist" // int
+	FindLessThan    = "lessthan"    // int
+	FindGreaterThan = "greaterthan" // int
+	FindEquals      = "equals"      // int
+	FindInIntList   = "inintlist"   // int
 
 	FindExists = "exists" // any type
 	FindIsNull = "isnull" // any type
@@ -68,7 +77,7 @@ const (
 	FindNot = true // used to set FindCondition.Not field
 )
 
-var StrFindOps = []string{FindContains, FindContainsWord, FindMatches, FindStartsWith, FindBefore, FindAfter, FindInStrList}
+var StrFindOps = []string{FindContains, FindContainsWord, FindMatches, FindStartsWith, FindEndsWith, FindBefore, FindAfter, FindInStrList}
 var IntFindOps = []string{FindLessThan, FindGreaterThan, FindEquals, FindInIntList}
 var AllFindOps = slices.Concat(StrFindOps, IntFindOps, []string{FindExists, FindIsNull})
 
@@ -85,14 +94,19 @@ const (
 	ErrJoinKey     = "joinkey"     // join key not found in join bkt
 	ErrJoinParse   = "joinparse"   // error parsing join record
 	ErrJoinFromFld = "joinfromfld" // join from fld invalid
+	// Verify Index Errors
+	ErrInvalidIndexValue   = "invalidindexvalue"   //
+	ErrDuplicateIndexValue = "duplicateindexvalue" //
+	ErrDataKeyNotIndexed   = "datakeynotindexed"   //
 )
 
 // UseDefault Codes, controls value returned when record field not found or is null
+// Default (zero value) is "" for string and 0 for int
 const (
-	DefaultAlways   = "always"   // on not found or null use zero value
+	DefaultAlways   = "always"   // on not found or null return zero value
 	DefaultNever    = "never"    // return error if notfound or null
-	DefaultIsNull   = "isnull"   // if null, use zero value, not found is error
-	DefaultNotFound = "notfound" // if not found, use zero value, null is error
+	DefaultIsNull   = "isnull"   // if null, return zero value, not found is error
+	DefaultNotFound = "notfound" // if not found, return zero value, null is error
 )
 
 var AllDefaultCodes = []string{DefaultAlways, DefaultNever, DefaultIsNull, DefaultNotFound}
@@ -119,10 +133,11 @@ const (
 	FldTypeInt = "int"
 )
 
-// PutRequest IndexOption Codes (IndexingNormal default) used in PutRequest
-
+// PutRequest IndexingOption Codes (IndexingNormal default)
 const (
 	IndexingNormal   = "normal"   // adds and updates to index bkts (most processing)
 	IndexingOff      = "off"      // no adds or updates to index bkts
 	IndexingNoUpdate = "noupdate" // no updates to index bkts, only adds (no checks for index already existing for data key)
 )
+
+var AllIndexingOptions = []string{IndexingNormal, IndexingOff, IndexingNoUpdate}

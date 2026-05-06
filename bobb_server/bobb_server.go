@@ -28,7 +28,8 @@ var settings struct {
 	CompressResponse    bool   `json:"compressResponse"`    // if true, response is compressed using gzip
 	InitialRespRecsSize int    `json:"initialRespRecsSize"` // initial size of Response.Recs slice
 	MaxErrs             int    `json:"maxErrs"`             // used if request ErrLimit is -1
-	KeySuffixWidth      int    `json:"KeySuffixWidth"`      // width of zero-padded suffix for keys, see PutRequest.AddKeySuffix
+	KeySuffixWidth      int    `json:"keySuffixWidth"`      // width of zero-padded suffix for keys, see PutRequest.AddKeySuffix
+	DefaultKeyFld       string `json:"defaultKeyFld"`       // if request doesn't specify key field, this will be used
 }
 var db *bolt.DB
 var logFile *os.File
@@ -143,6 +144,19 @@ func loadSettings(fileName string) {
 		}
 		log.SetOutput(logFile)
 	}
+	if settings.InitialRespRecsSize < 1 {
+		settings.InitialRespRecsSize = 400
+	}
+	if settings.MaxErrs < 1 {
+		settings.MaxErrs = 10
+	}
+	if settings.KeySuffixWidth < 1 {
+		settings.KeySuffixWidth = 8
+	}
+	if settings.DefaultKeyFld == "" {
+		settings.DefaultKeyFld = "id"
+	}
+	bobb.DefaultKeyFld = settings.DefaultKeyFld
 	bobb.InitialRespRecsSize = settings.InitialRespRecsSize
 	bobb.MaxErrs = settings.MaxErrs
 	bobb.KeySuffixWidth = settings.KeySuffixWidth

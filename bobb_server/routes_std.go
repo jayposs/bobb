@@ -32,6 +32,10 @@ func stdRoutes() {
 		var req bobb.QryRequest
 		process(bobb.OpQry, &req, w, r)
 	})
+	http.HandleFunc("/verifyindex", func(w http.ResponseWriter, r *http.Request) {
+		var req bobb.VerifyIndexRequest
+		process(bobb.OpVerifyIndex, &req, w, r)
+	})
 
 	// *** UPDATE REQUEST ROUTING *****************************************************
 
@@ -39,23 +43,22 @@ func stdRoutes() {
 		var req bobb.PutRequest
 		process(bobb.OpPut, &req, w, r)
 	})
-	http.HandleFunc("/putone", func(w http.ResponseWriter, r *http.Request) {
-		var req bobb.PutOneRequest
-		process(bobb.OpPutOne, &req, w, r)
-	})
 	http.HandleFunc("/putindex", func(w http.ResponseWriter, r *http.Request) {
 		var req bobb.PutIndexRequest
 		process(bobb.OpPutIndex, &req, w, r)
-	})
-	http.HandleFunc("/putbkts", func(w http.ResponseWriter, r *http.Request) {
-		var req bobb.PutBktsRequest
-		process(bobb.OpPutBkts, &req, w, r)
 	})
 	http.HandleFunc("/delete", func(w http.ResponseWriter, r *http.Request) {
 		var req bobb.DeleteRequest
 		process(bobb.OpDelete, &req, w, r)
 	})
-
+	http.HandleFunc("/indexsetting", func(w http.ResponseWriter, r *http.Request) {
+		var req bobb.IndexSettingRequest
+		process(bobb.OpIndexSetting, &req, w, r)
+	})
+	http.HandleFunc("/indexrequest", func(w http.ResponseWriter, r *http.Request) {
+		var req bobb.IndexRequest
+		process(bobb.OpIndexRequest, &req, w, r)
+	})
 	// *** OTHER REQUEST ROUTING *****************************************************
 
 	http.HandleFunc("/bkt", func(w http.ResponseWriter, r *http.Request) {

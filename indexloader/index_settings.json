@@ -1,25 +1,33 @@
 {
     "location_zip": {
-        "dataBkt": "location",
-        "indexBkt": "location_zip_index",
-        "dataFlds": [{"fldName":"zip", "fldType":"string", "length":5}],
-        "dataIdFld": "id"
+        "DataBkt": "location",
+        "IndexBkt": "location_zip_index",
+        "KeyFlds": [
+            {"FldName":"zip", "FldType":"string", "Length":5, "UseDefault":"always", "StrOption":"lowercase"}
+        ],
+        "FldSeparator": "|",
+        "KeySuffixWidth": 6,
+        "SkipOnErr": true
     },
     "location_city_address": {
-        "dataBkt": "location",
-        "indexBkt": "location_city_address_index",
-        "dataFlds": [
-            {"fldName":"city", "fldType":"string", "length":15},
-            {"fldName":"address", "fldType":"string", "length":20}
+        "DataBkt": "location",
+        "IndexBkt": "location_city_address_index",
+        "KeyFlds": [
+            {"FldName":"city", "FldType":"string", "Length":15, "UseDefault":"always", "StrOption":"lowercase"},
+            {"FldName":"address", "FldType":"string", "Length":20, "UseDefault":"always", "StrOption":"lowercase"}
         ],
-        "dataIdFld": "id"
+        "FldSeparator": "|",
+        "KeySuffixWidth": 6,
+        "SkipOnErr": true
     },
     "location_locationtype": {
-        "dataBkt": "location",
-        "indexBkt": "location_locationtype_index",
-        "dataFlds": [
-            {"fldName":"locationType", "fldType":"int", "length":3}
+        "DataBkt": "location",
+        "IndexBkt": "location_locationtype_index",
+        "KeyFlds": [
+            {"FldName":"locationType", "FldType":"int", "Length":3, "UseDefault": "always", "StrOption": "lowercase"}
         ],
-        "dataIdFld": "id"
+        "FldSeparator": "|",
+        "KeySuffixWidth": 6,
+        "SkipOnErr": true
     }
 }

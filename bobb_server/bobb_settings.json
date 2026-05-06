@@ -6,7 +6,8 @@
     "compressResponse": false,
     "initialRespRecsSize": 400,
     "maxErrs": 100,
-    "KeySuffixWidth": 8,
+    "keySuffixWidth": 8,
+    "defaultKeyFld": "id",
     "comments": {
 	    "dbPath": "location & name of db file",
 	    "port": "what port server listens on",
@@ -15,6 +16,7 @@
 	    "compressResponse": "if true, response is compressed",
         "initialRespRecsSize": "initial size of Response.Recs slice",
         "maxErrs": "if req.ErrLimit is -1, use this as limit",
-        "KeySuffixWidth": "width of zero-padded suffix for keys, see PutRequest.AddKeySuffix"
+        "keySuffixWidth": "width of zero-padded suffix for keys, see PutRequest.AddKeySuffix",
+        "defaultKeyFld": "default key field name if not specified in request"
     }
 }

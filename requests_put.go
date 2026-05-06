@@ -1,8 +1,11 @@
 package bobb
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"log"
+	"slices"
 	"strconv"
 	"time"
 
@@ -10,232 +13,246 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
-// putRec used by Put, PutBkts, PutOne funcs.
-// It adds or replaces a record in the bkt based on existence of key.
-// The value of keyField is used as the record key and this field must exist in rec.
-// Returns BadInputData/DB Error, *BobbError, record key loaded.
-func putRec(bkt *bolt.Bucket, rec []byte, keyField string, parser *fastjson.Parser, requiredFlds []string, AddKeySuffix bool) (error, *BobbErr, []byte) {
-	parsedRec, err := parser.ParseBytes(rec)
-	if err != nil {
-		bobbErr := e(ErrParseRec, err.Error(), nil, rec)
-		err = ErrBadInputData
-		return err, bobbErr, nil
-	}
-	key := parsedRec.GetStringBytes(keyField) // key is []byte
-	if key == nil {
-		bobbErr := e(ErrFldNotFound, "keyField not in rec-"+keyField, nil, rec)
-		err = ErrBadInputData
-		return err, bobbErr, nil
-	}
-	for _, fld := range requiredFlds {
-		if !parsedRec.Exists(fld) {
-			bobbErr := e(ErrFldNotFound, "required fld not found-"+fld, key, rec)
-			err = ErrBadInputData
-			return err, bobbErr, nil
-		}
-	}
-	// if AddKeySuffix, add bkt NextSeq# to end of key
-	if AddKeySuffix {
-		seqNo, err := bkt.NextSequence()
-		if err != nil {
-			log.Println("bkt.NextSequence failed -", err)
-			return err, nil, nil
-		}
-		format := "%." + strconv.Itoa(KeySuffixWidth) + "d" // ex. convert 123 to 00000123
-		suffix := fmt.Sprintf(format, seqNo)
+/*
+Put requests add or replace entries in a bucket. If the key already exists, the entry value is replaced,
+else a new entry is added. The key value must be contained in the KeyField in each record (typicaly "id").
 
-		key = append(key, []byte(suffix)...)
-		fastKey, _ := fastjson.Parse(`"` + string(key) + `"`) // create *fastjson.Value, to update parsedRec with new key
-		parsedRec.Set(keyField, fastKey)
-		rec = parsedRec.MarshalTo(nil) // set rec to updated marshaled value, []byte
-	}
-	err = bkt.Put(key, rec)
-	if err != nil {
-		bobbErr := e("put failed", err.Error(), key, rec)
-		log.Println("db error - put failed", err)
-		return err, bobbErr, nil
-	}
-	return nil, nil, key
-}
+Multiple buckets can be loaded in a single PutRequest. If there is an error, all updates will be rolled back.
 
-// putLogRec used by PutOne func to write put requests to log bkt.
-// Key appended with timestamp so point in time value can be retrieved.
-func putLogRec(bkt *bolt.Bucket, key string, rec []byte) error {
-	fullKey := key + "|" + time.Now().Format(time.DateTime)
-	err := bkt.Put([]byte(fullKey), rec)
-	if err != nil {
-		log.Println("db error - putLogRec failed", err)
-	}
-	return err
+By default (see IndexingOption for options) any IndexSettings found, for the target bucket, will be used to automatically
+update associated index buckets.
+
+If a suffix is auto added to the key (see AddKeySuffix), the full key will be returned in resp.PutKeys,
+so caller can see keys used.
+*/
+
+// PutParm(s) used by PutRequest to specify parameters for each put operation.
+type PutParm struct {
+	BktName        string   // data bkt where recs will be put, created if not exists
+	KeyField       string   // fld in recs containing key value, default is DefaultKeyFld from bobb_settings.json
+	Recs           [][]byte // typically json marshaled value of records
+	RequiredFlds   []string // optional, fld names that must be included in recs
+	AddKeySuffix   bool     // if true, add bkt NextSeq# to end of key
+	IndexingOption string   // see Indexing* codes in codes.go, IndexingNormal is default
+	LogPut         bool     // if true, write record to bktname_putlog bkt. Key is dataKey|timestamp. Value is Rec. Provides point in time values.
 }
 
 // PutRequest is used to add or replace records.
-// If key exists, existing record is replaced otherwise record is added.
-// Recs must include the KeyField to be used as the key (unique id).
-// Recs are the json marshaled value of the record type.
-// RequiredFlds (optional), fld names that must be included in recs.
-// Only top level fld names allowed.
+// Multiple PutParms can be included in a single request, allows for multiple bkts to be updated in a single transaction.
 type PutRequest struct {
-	BktName      string
-	KeyField     string   // field in Rec containing value to be used as key
-	Recs         [][]byte // records to be added or replaced in db
-	RequiredFlds []string // recs must include these fields (optional)
-	AddKeySuffix bool     // if true, add bkt NextSeq# to end of key
+	PutParms []PutParm
 }
 
 func (req PutRequest) IsUpdtReq() bool {
 	return true
 }
+
 func (req *PutRequest) Run(tx *bolt.Tx) (*Response, error) {
 
 	resp := new(Response)
-	if req.KeyField == "" {
-		resp.Status = StatusFail
-		resp.Msg = "PutRequest.KeyField cannot be blank"
-		return resp, nil
-	}
-	bkt := openBkt(tx, resp, req.BktName, CreateIfNotExists)
-	if bkt == nil {
-		return resp, nil
-	}
+
 	parser := parserPool.Get()
 	defer parserPool.Put(parser)
 
-	resp.Recs = make([][]byte, 0, len(req.Recs)) // loaded with keys used by putRec()
+	var bkt, logBkt *bolt.Bucket
+	var indexrs []Indexr
+	var parsedRec *fastjson.Value
+	var recKey, keyBytes []byte
 
-	for _, rec := range req.Recs { // req.Recs is [][]byte
-		err, bErr, keyUsed := putRec(bkt, rec, req.KeyField, parser, req.RequiredFlds, req.AddKeySuffix)
+	var putKeys []string // used to hold keys for all recs in a PutParm, added to resp.PutKeys at end of loop for recs in PutParm
+	var putKeysNdx int   // index used for resp.PutKeys map
+
+	suffixFormat := "%0" + strconv.Itoa(KeySuffixWidth) + "d" // ex. convert 123 to 00000123, see util.go for global KeySuffixWidth
+
+	var totalRecs int
+	for _, p := range req.PutParms {
+		totalRecs += len(p.Recs)
+	}
+	resp.Recs = make([][]byte, 0, totalRecs) // loaded with keys used by putRec(), needed when AddKeySuffix is true
+
+	resp.PutKeys = make(map[int][]string, len(req.PutParms)) // initialize map to hold keys used for each PutParm
+
+	for parmNo, parms := range req.PutParms {
+		err := validatePutParms(&parms) // validatePutParms also sets default values for certain parms if not included in request
 		if err != nil {
 			resp.Status = StatusFail
-			resp.Msg = "Put request failed, see resp.Errs[0] for details"
-			resp.Errs = append(resp.Errs, *bErr)
+			resp.Msg = "PutRequest validation failed for PutParms index: " + strconv.Itoa(parmNo) + "-" + err.Error()
 			return resp, err // trans will be rolled back
 		}
-		resp.Recs = append(resp.Recs, keyUsed)
-		resp.PutCnt++
-	}
+		bkt = openBkt(tx, resp, parms.BktName, CreateIfNotExists)
+		if bkt == nil {
+			return resp, fmt.Errorf("invalid BktName - %s", parms.BktName) // trans will be rolled back
+		}
+		if parms.LogPut {
+			logBkt = openBkt(tx, resp, parms.BktName+"_putlog", CreateIfNotExists)
+			if logBkt == nil {
+				log.Println("error opening put log bkt -", parms.BktName+"_putlog")
+				return resp, fmt.Errorf("invalid log BktName - %s_putlog", parms.BktName) // trans will be rolled back
+			}
+		}
+		if parms.IndexingOption != IndexingOff {
+			indexrs, err = loadIndexrs(tx, parms.BktName)
+			if err != nil {
+				resp.Status = StatusFail
+				resp.Msg = "PutRequest failed, error in loadIndexrs-" + err.Error()
+				return resp, err
+			}
+		}
+
+		// add keys used for prev PutParm to resp.PutKeys map
+		if parmNo > 0 {
+			resp.PutKeys[putKeysNdx] = putKeys
+			putKeysNdx++
+		}
+		putKeys = make([]string, 0, len(parms.Recs)) // initialize slice to hold keys used for this PutParm
+
+		// -- PROCESS RECS LOOP -------------------------------------------------
+
+		for recNo, rec := range parms.Recs { // parms.Recs is [][]byte
+
+			// parse input rec ([]byte) to *fastjson.Value
+			parsedRec, err = parser.ParseBytes(rec)
+			if err != nil {
+				resp.Status = StatusFail
+				resp.Msg = "PutRequest failed, error in parsing rec-" + err.Error()
+				return resp, ErrBadInputData // trans will be rolled back
+			}
+			// extract key value from parsedRec
+			keyBytes = parsedRec.GetStringBytes(parms.KeyField)
+			if keyBytes == nil {
+				resp.Status = StatusFail
+				resp.Msg = fmt.Sprintf("PutRequest failed, key field '%s' not found in ParmNo %d rec# %d", parms.KeyField, parmNo, recNo)
+				return resp, ErrBadInputData // trans will be rolled back
+			}
+			recKey = make([]byte, len(keyBytes))
+			copy(recKey, keyBytes) // make copy of keyBytes since recKey may be modified if AddKeySuffix is true, and we don't want to modify original keyBytes in fastjson.Value
+
+			// verify required fields are present in parsedRec
+			for _, fld := range parms.RequiredFlds {
+				if !parsedRec.Exists(fld) {
+					resp.Status = StatusFail
+					resp.Msg = fmt.Sprintf("PutRequest failed, required field '%s' not found in ParmNo %d rec# %d", fld, parmNo, recNo)
+					return resp, ErrBadInputData // trans will be rolled back
+				}
+			}
+			// if parms.AddKeySuffix, add bkt NextSeq# to end of key
+			if parms.AddKeySuffix {
+				seqNo, err := bkt.NextSequence()
+				if err != nil {
+					log.Println("bkt.NextSequence failed -", parms.BktName, err)
+					resp.Status = StatusFail
+					resp.Msg = "PutRequest failed, error in bkt.NextSequence-" + parms.BktName + "-" + err.Error()
+					return resp, err // trans
+				}
+				suffix := fmt.Sprintf(suffixFormat, seqNo)
+				recKey = append(recKey, []byte(suffix)...)
+				fastKey, err := fastjson.Parse(`"` + string(recKey) + `"`) // keys with special characters may cause Parse to fail
+				if err != nil {
+					log.Println("fastjson.Parse failed for key with suffix -", string(recKey), err)
+					resp.Status = StatusFail
+					resp.Msg = "PutRequest failed, error in fastjson.Parse for key with suffix-" + string(recKey) + "-" + err.Error()
+					return resp, err // trans will be rolled back
+				}
+				parsedRec.Set(parms.KeyField, fastKey) // update parsedRec with new key that includes suffix
+				rec = parsedRec.MarshalTo(nil)         // set rec to updated marshaled value, []byte
+			}
+			// put rec in bkt
+			err = bkt.Put(recKey, rec)
+			if err != nil {
+				log.Println("bkt.Put failed -", parms.BktName, err)
+				resp.Status = StatusFail
+				resp.Msg = "PutRequest failed, error in bkt.Put-" + parms.BktName + "-" + err.Error()
+				return resp, err // trans will be rolled back
+			}
+			// add key used in "put" to resp.PutKeys[parmNo], may be needed by caller if suffix was added
+			respRecKey := make([]byte, len(recKey))
+			copy(respRecKey, recKey)   // preserve recKey for use in indexing and/or logging
+			if len(req.PutParms) > 1 { // if multiple PutParms, add parmNo prefix to recKey to indicate which PutParm it came from
+				respRecKey = fmt.Appendf(nil, "%d-%s", parmNo, string(respRecKey)) // using fmt.Appendf with nil is more efficient than Sprintf
+			}
+			putKeys = append(putKeys, string(respRecKey))
+
+			resp.PutCnt++
+
+			// if parms.LogPut, write record to log bkt with key format dataKey|timestamp for point in time values
+			//   WARNING - if AddKeySuffix is true, key value in log will include suffix, so may not be ideal for use as point in time value since it will be different on each put, but it will work if you want to keep track of what was actually put in data bkt
+			if parms.LogPut {
+				logKey := string(recKey) + "|" + time.Now().Format(time.DateTime)
+				err = logBkt.Put([]byte(logKey), rec)
+				if err != nil {
+					resp.Status = StatusFail
+					resp.Msg = fmt.Sprintf("LogPut request failed for bkt %s - %s", parms.BktName+"_putlog", err.Error())
+					return resp, err // trans will be rolled back
+				}
+			}
+			// perform indexing if specified and if indexrs exist for this bkt
+			if len(indexrs) > 0 {
+				for _, indexr := range indexrs {
+					err = indexr.Run(tx, recKey, parsedRec, parms.IndexingOption)
+					if err != nil {
+						resp.Status = StatusFail
+						resp.Msg = "Put request indexing failed-" + err.Error()
+						return resp, err
+					}
+				}
+			}
+		} // end of loop for recs in PutParms
+	} // end of loop for PutParms
+
+	resp.PutKeys[putKeysNdx] = putKeys // add keys used for last PutParm to resp.PutKeys map
+
 	resp.Status = StatusOk
 	return resp, nil
 }
 
-// PutBktsRequest is used to add or replace records in 2 bkts with 1 transaction.
-// For example: adding new order and order items.
-// If either bkt update fails, complete transaction is rolled back.
-// RequiredFlds (optional), fld names that must be included in recs.
-type PutBktsRequest struct {
-	BktName       string
-	KeyField      string   // field in Rec containing value to be used as key
-	Recs          [][]byte // records to be added or replaced in bkt 1
-	RequiredFlds  []string // recs must include these fields (optional)
-	Bkt2Name      string
-	Recs2         [][]byte // records to be added or replaced in bkt 2
-	RequiredFlds2 []string // recs must include these fields (optional)
+// validatePutParms checks for required parms and sets default values for certain optional parms if not included in request.
+func validatePutParms(parms *PutParm) error {
+	if parms.BktName == "" {
+		return fmt.Errorf("BktName cannot be blank")
+	}
+	if parms.KeyField == "" {
+		parms.KeyField = DefaultKeyFld // see bobb_settings.json for global DefaultKeyFld value, typically "id"
+	}
+	if parms.IndexingOption == "" {
+		parms.IndexingOption = IndexingNormal
+	}
+	if !slices.Contains(AllIndexingOptions, parms.IndexingOption) {
+		return fmt.Errorf("invalid IndexingOption - %s", parms.IndexingOption)
+	}
+	if len(parms.Recs) == 0 {
+		return fmt.Errorf("at least one record must be included in Recs")
+	}
+	return nil
 }
 
-func (req PutBktsRequest) IsUpdtReq() bool {
-	return true
-}
-func (req *PutBktsRequest) Run(tx *bolt.Tx) (*Response, error) {
+// loadIndexrs loads indexrs for a data bkt using index settings from index_settings bkt
+func loadIndexrs(tx *bolt.Tx, dataBkt string) (indexrs []Indexr, err error) {
 
-	resp := new(Response)
-	if req.KeyField == "" {
-		resp.Status = StatusFail
-		resp.Msg = "PutBktsRequest.KeyField cannot be blank"
-		return resp, nil
+	settingsBkt := tx.Bucket([]byte(IndexSettingsBkt))
+	if settingsBkt == nil {
+		return nil, nil // no index settings, so return empty slice, not an error
 	}
-	bkt1 := openBkt(tx, resp, req.BktName, CreateIfNotExists)
-	if bkt1 == nil {
-		return resp, nil
-	}
-	bkt2 := openBkt(tx, resp, req.Bkt2Name, CreateIfNotExists)
-	if bkt2 == nil {
-		return resp, nil
-	}
-	parser := parserPool.Get()
-	defer parserPool.Put(parser)
-
-	// -- process puts for bkt 1 -----------------------------------
-	for _, rec := range req.Recs { // req.Recs is [][]byte
-		err, bErr, _ := putRec(bkt1, rec, req.KeyField, parser, req.RequiredFlds, false)
+	// load indexrs using IndexSettings for this dataBkt
+	indexrs = make([]Indexr, 0, 5) // start with capacity of 5, will grow as needed, number of indexrs for a data bkt is typically small
+	csr := settingsBkt.Cursor()
+	prefix := []byte(dataBkt)
+	var setting IndexSetting
+	var indexr *Indexr
+	for k, v := csr.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, v = csr.Next() {
+		err = json.Unmarshal(v, &setting)
 		if err != nil {
-			resp.Status = StatusFail
-			resp.Msg = "PutBkts request failed, see resp.Errs[0] for details"
-			resp.Errs = append(resp.Errs, *bErr)
-			return resp, err // trans will be rolled back
+			return nil, fmt.Errorf("error unmarshalling index setting for index bkt %s - %s", string(k), err.Error())
 		}
-		resp.PutCnt++
-	}
-	// -- process puts for bkt 2 -----------------------------------
-	for _, rec := range req.Recs2 { // req.Recs2 is [][]byte
-		err, bErr, _ := putRec(bkt2, rec, req.KeyField, parser, req.RequiredFlds2, false)
+		if setting.DataBkt != dataBkt {
+			continue // possible for prefix to match multiple data bkts, ex. "order" prefix matches "order", "order_item"
+		}
+		indexr, err = NewIndxr(tx, &setting)
 		if err != nil {
-			resp.Status = StatusFail
-			resp.Msg = "PutBkts request failed, see resp.Errs[0] for details"
-			resp.Errs = append(resp.Errs, *bErr)
-			return resp, err // trans will be rolled back
+			return nil, err
 		}
-		resp.PutCnt++
+		indexrs = append(indexrs, *indexr)
 	}
-	resp.Status = StatusOk
-	return resp, nil
-}
-
-// PutOneRequest is used to add or replace a single record.
-// Rec must include the KeyField to be used as the key (unique id).
-// Rec is the json marshaled value of the record type.
-// RequiredFlds (optional), fld names that must be included in recs.
-// LogPut indicates to put record to bktname_putlog bkt.
-// Key is dataKey|timestamp. Value is Rec. Provides point in time values.
-type PutOneRequest struct {
-	BktName      string
-	KeyField     string   // field in Rec containing value to be used as key
-	Rec          []byte   // record to be added or replaced in db
-	RequiredFlds []string // recs must include these fields (optional)
-	LogPut       bool     // if true, write record to bktname_putlog bkt
-}
-
-func (req PutOneRequest) IsUpdtReq() bool {
-	return true
-}
-
-func (req *PutOneRequest) Run(tx *bolt.Tx) (*Response, error) {
-
-	resp := new(Response)
-	if req.KeyField == "" {
-		resp.Status = StatusFail
-		resp.Msg = "PutOneRequest.KeyField cannot be blank"
-		return resp, nil
-	}
-	bkt := openBkt(tx, resp, req.BktName, CreateIfNotExists)
-	if bkt == nil {
-		return resp, nil
-	}
-	parser := parserPool.Get()
-	defer parserPool.Put(parser)
-
-	err, bErr, _ := putRec(bkt, req.Rec, req.KeyField, parser, req.RequiredFlds, false)
-	if err != nil {
-		resp.Status = StatusFail
-		resp.Msg = "PutOne request failed, see resp.Errs[0] for details"
-		resp.Errs = append(resp.Errs, *bErr)
-		return resp, err // trans will be rolled back
-	}
-	if req.LogPut { // write record to log bkt
-		logBkt := openBkt(tx, resp, req.BktName+"_log", CreateIfNotExists)
-		if logBkt == nil {
-			return resp, nil
-		}
-		key := fastjson.GetString(req.Rec, req.KeyField)
-		err := putLogRec(logBkt, key, req.Rec)
-		if err != nil {
-			resp.Status = StatusFail
-			resp.Msg = "PutOne-LogPut request failed"
-			return resp, err // trans will be rolled back
-		}
-	}
-	resp.PutCnt = 1
-	resp.Status = StatusOk
-	return resp, nil
+	return indexrs, nil
 }
 
 // IndexKeyVal type is used by PutIndexRequest.

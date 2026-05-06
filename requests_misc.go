@@ -17,6 +17,11 @@ const CreateIfNotExists = true
 // Both View and Update handler funcs use openBkt.
 // If tx is update transaction, createIfNotExists option can be used.
 func openBkt(tx *bolt.Tx, resp *Response, bktName string, createIfNotExists ...bool) *bolt.Bucket {
+	if bktName == "" {
+		resp.Status = StatusFail
+		resp.Msg = "BktName not specfied in request"
+		return nil
+	}
 	var bkt *bolt.Bucket
 	var err error
 	if len(createIfNotExists) > 0 && createIfNotExists[0] {
@@ -72,7 +77,7 @@ func (req *BktRequest) Run(tx *bolt.Tx) (*Response, error) {
 	case BktDelete:
 		tx.DeleteBucket([]byte(req.BktName)) // NOTE - delete error is ignored
 	case BktNextSeq:
-		bkt := openBkt(tx, resp, req.BktName)
+		bkt := openBkt(tx, resp, req.BktName, CreateIfNotExists)
 		if bkt == nil {
 			return resp, nil
 		}
@@ -142,6 +147,13 @@ func (req *DeleteRequest) Run(tx *bolt.Tx) (*Response, error) {
 	if bkt == nil {
 		return resp, nil
 	}
+	indexBkts, indexInvertedBkts, err := getIndexBkts(tx, req.BktName)
+	if err != nil {
+		log.Println("error getting index bkts for data bkt", req.BktName, err)
+		resp.Status = StatusFail
+		resp.Msg = "error getting index bkts for data bkt, see log for details"
+		return resp, err
+	}
 	for _, key := range req.Keys {
 		err := bkt.Delete([]byte(key))
 		if err != nil { // key not found does not return error
@@ -150,9 +162,71 @@ func (req *DeleteRequest) Run(tx *bolt.Tx) (*Response, error) {
 			resp.Msg = "Delete failed, see log for details"
 			return resp, err // trans will be rolled back
 		}
+		// delete index entries for this data key
+		for i, indexBkt := range indexBkts {
+			indexInvertedBkt := indexInvertedBkts[i]
+			indexKey := indexInvertedBkt.Get([]byte(key))
+			if indexKey != nil {
+				indexBkt.Delete(indexKey)
+				indexInvertedBkt.Delete([]byte(key))
+			}
+		}
 	}
 	resp.Status = StatusOk
 	return resp, nil
+}
+
+// getIndexBkts used by DeleteRequest.
+// Inverted bkt key is data key, val is index key. This allows us to find index entry for a data key.
+// getIndexBkts retrieves the index buckets and their corresponding inverted index buckets
+// for a given data bucket name within a BoltDB transaction.
+//
+// It looks up index settings in the IndexSettingsBkt bucket, filters them by the provided
+// dataBkt name, and collects the associated index and inverted index buckets.
+//
+// Parameters:
+//
+//	tx      - The BoltDB transaction to use for bucket access.
+//	dataBkt - The name of the data bucket for which to find index buckets.
+//
+// Returns:
+//
+//	indexBkts         - A slice of pointers to the found index buckets.
+//	indexInvertedBkts - A slice of pointers to the corresponding inverted index buckets.
+//	err               - An error if any occurs during processing (e.g., unmarshalling settings).
+func getIndexBkts(tx *bolt.Tx, dataBkt string) (indexBkts []*bolt.Bucket, indexInvertedBkts []*bolt.Bucket, err error) {
+
+	settingsBkt := tx.Bucket([]byte(IndexSettingsBkt))
+	if settingsBkt == nil {
+		return nil, nil, nil // no index settings, so no index bkts
+	}
+	csr := settingsBkt.Cursor()
+	prefix := []byte(dataBkt)
+	var setting IndexSetting
+	indexBkts = make([]*bolt.Bucket, 0, 5)
+	indexInvertedBkts = make([]*bolt.Bucket, 0, 5)
+	for k, v := csr.Seek(prefix); k != nil && bytes.HasPrefix(k, prefix); k, v = csr.Next() {
+		err = json.Unmarshal(v, &setting)
+		if err != nil {
+			return nil, nil, fmt.Errorf("error unmarshalling index setting for index bkt %s - %s", string(k), err.Error())
+		}
+		if setting.DataBkt != dataBkt {
+			continue // possible for prefix to match multiple data bkts, ex. "order" prefix matches "order", "order_item"
+		}
+		indexBkt := tx.Bucket([]byte(setting.IndexBkt))
+		if indexBkt == nil {
+			continue
+		}
+		indexBkts = append(indexBkts, indexBkt)
+
+		indexInvertedBktName := setting.IndexBkt + "_inverted"
+		indexInvertedBkt := tx.Bucket([]byte(indexInvertedBktName))
+		if indexInvertedBkt == nil {
+			continue
+		}
+		indexInvertedBkts = append(indexInvertedBkts, indexInvertedBkt)
+	}
+	return indexBkts, indexInvertedBkts, nil
 }
 
 // Export writes bkt records to a file as formatted json.
@@ -175,7 +249,6 @@ func (req *ExportRequest) Run(tx *bolt.Tx) (*Response, error) {
 		return resp, nil
 	}
 	exportFile, err := os.Create(req.FilePath)
-	log.Println("created exportfile")
 	if err != nil {
 		log.Println("error creating export file", req.FilePath, err)
 		resp.Status = StatusFail

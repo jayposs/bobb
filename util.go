@@ -7,6 +7,10 @@ import (
 	"github.com/valyala/fastjson"
 )
 
+const IndexSettingsBkt = "index_settings"
+
+var DefaultKeyFld string // set at startup by bobb_server.go, used in Put requests that don't specify KeyField
+
 var InitialRespRecsSize int // from bobb_settings.json, response.Recs slice initial allocation for this size
 
 var KeySuffixWidth int // from bobb_settings.json, set at startup by bobb_server.go, used in Put requests with AddKeySuffix true

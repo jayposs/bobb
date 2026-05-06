@@ -64,18 +64,16 @@ func main() {
 // qry1 returns records meeting find conditions in sorted order
 func qry1() {
 
-	criteria := bo.Find(nil, "zip", bobb.FindStartsWith, "5")
-
-	sortKeys := []bobb.SortKey{
-		{Fld: "locationType", Dir: bobb.SortDescInt},
-		{Fld: "address", Dir: bobb.SortAscStr},
-	}
-	req := bobb.QryRequest{
-		BktName:        locationBkt,
-		FindConditions: criteria,
-		SortKeys:       sortKeys,
-	}
-	resp, _ := bo.Run(httpClient, bobb.OpQry, req)
+	resp, _ := bo.Run(httpClient, bobb.OpQry, bobb.QryRequest{
+		BktName: locationBkt,
+		Criteria: []bobb.FindGroup{
+			bo.Find(nil, "zip", bobb.FindStartsWith, "5"),
+		},
+		SortKeys: []bobb.SortKey{
+			{Fld: "locationType", Dir: bobb.SortDescInt},
+			{Fld: "address", Dir: bobb.SortAscStr},
+		},
+	})
 	log.Println("qry1", len(resp.Recs))
 }
 
@@ -83,7 +81,7 @@ func qry1() {
 func qry2() {
 
 	criteria := bo.Find(nil, "st", bobb.FindAfter, "ok")
-	criteria = bo.Find(criteria, "address", bobb.FindContains, "ave")
+	criteria = bo.Find(criteria, "address", bobb.FindContainsWord, "ave")
 	criteria = bo.Find(criteria, "locationType", bobb.FindEquals, 3)
 
 	sortKeys := bo.Sort(nil, "locationType", bobb.SortAscInt)
@@ -91,9 +89,9 @@ func qry2() {
 	sortKeys = bo.Sort(sortKeys, "city", bobb.SortAscStr)
 
 	req := bobb.QryRequest{
-		BktName:        locationBkt,
-		FindConditions: criteria,
-		SortKeys:       sortKeys,
+		BktName:  locationBkt,
+		Criteria: []bobb.FindGroup{criteria},
+		SortKeys: sortKeys,
 	}
 	resp, _ := bo.Run(httpClient, bobb.OpQry, req)
 	log.Println("qry2", len(resp.Recs))
@@ -110,9 +108,9 @@ func qry3() {
 		{Fld: "city", Dir: bobb.SortAscStr},
 	}
 	req := bobb.QryRequest{
-		BktName:        locationBkt,
-		FindConditions: criteria,
-		SortKeys:       sortKeys,
+		BktName:  locationBkt,
+		Criteria: []bobb.FindGroup{criteria},
+		SortKeys: sortKeys,
 	}
 	resp, _ := bo.Run(httpClient, bobb.OpQry, req)
 	log.Println("qry3", len(resp.Recs))
@@ -132,19 +130,19 @@ func qryIndex() {
 
 // qryIndex2 retrieves records using index bkt to control which records are read.
 func qryIndex2() {
-	criteria := []bobb.FindCondition{
+	criteria := bobb.FindGroup{
 		{Fld: "address", Op: bobb.FindContains, ValStr: "ave"},
 	}
 	sortKeys := []bobb.SortKey{
 		{Fld: "city", Dir: bobb.SortDescStr},
 	}
 	req := bobb.QryRequest{
-		BktName:        locationBkt,
-		IndexBkt:       "location_zip_index",
-		StartKey:       "40000",
-		EndKey:         "69999",
-		FindConditions: criteria,
-		SortKeys:       sortKeys,
+		BktName:  locationBkt,
+		IndexBkt: "location_zip_index",
+		StartKey: "40000",
+		EndKey:   "69999",
+		Criteria: []bobb.FindGroup{criteria},
+		SortKeys: sortKeys,
 	}
 	resp, _ := bo.Run(httpClient, bobb.OpQry, req)
 	log.Println("qryIndex2", len(resp.Recs))
@@ -152,19 +150,19 @@ func qryIndex2() {
 
 // qryIndex3 retrieves records using index bkt to control which records are read.
 func qryIndex3() {
-	criteria := []bobb.FindCondition{
+	criteria := bobb.FindGroup{
 		{Fld: "address", Op: bobb.FindContains, ValStr: "ave"},
 	}
 	sortKeys := []bobb.SortKey{
 		{Fld: "city", Dir: bobb.SortDescStr},
 	}
 	req := bobb.QryRequest{
-		BktName:        locationBkt,
-		IndexBkt:       "location_zip_index",
-		StartKey:       "56000",
-		EndKey:         "56999",
-		FindConditions: criteria,
-		SortKeys:       sortKeys,
+		BktName:  locationBkt,
+		IndexBkt: "location_zip_index",
+		StartKey: "56000",
+		EndKey:   "56999",
+		Criteria: []bobb.FindGroup{criteria},
+		SortKeys: sortKeys,
 	}
 	resp, _ := bo.Run(httpClient, bobb.OpQry, req)
 	log.Println("qryIndex3", len(resp.Recs))

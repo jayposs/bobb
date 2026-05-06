@@ -182,7 +182,7 @@ func (req *GetOneRequest) Run(tx *bolt.Tx) (*Response, error) {
 		bErr := e(ErrNotFound, "Key Not Found", []byte(req.Key), nil)
 		resp.Errs = append(resp.Errs, *bErr)
 		resp.Status = StatusFail
-		resp.Msg = "not found"
+		resp.Msg = ErrNotFound
 		return resp, nil
 	}
 	resp.Rec = v

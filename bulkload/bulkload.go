@@ -42,46 +42,50 @@ func main() {
 
 	batchSize := 1000
 
-	putReq := newPutReq(targetBkt, batchSize)
+	recs := make([][]byte, 0, batchSize)
 
 	for _, rec := range importRecs {
 		jsonRec, err := json.Marshal(rec) // convert each record to []byte
 		if err != nil {
 			log.Fatalln("json.Marshal failed", err)
 		}
-		putReq.Recs = append(putReq.Recs, jsonRec)
-		if len(putReq.Recs) == batchSize {
+		recs = append(recs, jsonRec)
+		if len(recs) == batchSize {
 			wg.Add(1)
-			go run(putReq, wg)
-			putReq = newPutReq(targetBkt, batchSize)
+			go run(recs, wg)
+			recs = make([][]byte, 0, batchSize)
 			time.Sleep(10 * time.Millisecond) // pause may be appropriate for large number of requests
 		}
 	}
-	if len(putReq.Recs) > 0 {
+	if len(recs) > 0 {
 		wg.Add(1)
-		go run(putReq, wg)
+		go run(recs, wg)
 	}
 	wg.Wait() // wait for all runs to finish before ending program
 
 	log.Println("bulk load complete")
 }
 
-func newPutReq(bkt string, batchSize int) *bobb.PutRequest {
-	return &bobb.PutRequest{
-		BktName:      bkt,
-		KeyField:     "id",
-		Recs:         make([][]byte, 0, batchSize),
-		RequiredFlds: []string{"field1", "field2"}, // optional
-	}
-}
-
-func run(req *bobb.PutRequest, wg *sync.WaitGroup) {
+func run(recs [][]byte, wg *sync.WaitGroup) {
 	defer func() {
 		wg.Done()
 		log.Println("-- put request complete")
 	}()
 	log.Println("++ start put request")
-	resp, err := bo.Run(httpClient, "put", req)
+	resp, err := bo.Run(httpClient, bobb.OpPut, bobb.PutRequest{
+		PutParms: []bobb.PutParm{
+			{
+				BktName:      targetBkt,
+				KeyField:     "id",
+				RequiredFlds: []string{"field1", "field2"},
+				Recs:         recs,
+				AddKeySuffix: true,
+			},
+		},
+	})
+	// or using client shortcut func:
+	// bo.Put(httpClient, targetBkt, recs, []string{"field1", "field2"}, bo.PutAddKeySuffix)
+
 	if err != nil {
 		log.Fatalln("put req failed", err)
 	}

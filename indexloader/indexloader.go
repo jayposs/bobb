@@ -24,20 +24,21 @@ import (
 
 const batchSize = 1000
 const indexSettingsFile = "index_settings.json"
+const DataIdFld = "id"
 
 // NOTE - As a safety measure the index bucket name must contain the word "index".
 // This safety measure is enforced because the index bkt is deleted/created.
 // The purpose is to prevent accidently deleting a data bkt.
 
 // Loaded from index_settings.json
-type IndexSetting struct {
-	DataBkt   string           `json:"dataBkt"`   // bkt containing data records
-	IndexBkt  string           `json:"indexBkt"`  // bkt containing index records, must have "index" in the name
-	DataFlds  []bobb.FldFormat `json:"dataFlds"`  // data field name(s) containing value(s) to concatenate for index key
-	DataIdFld string           `json:"dataIdFld"` // fld in data recs containing key (matches rec key)
-}
+//type IndexSetting struct {
+//DataBkt   string           `json:"dataBkt"`   // bkt containing data records
+//IndexBkt  string           `json:"indexBkt"`  // bkt containing index records, must have "index" in the name
+//DataFlds  []bobb.FldFormat `json:"dataFlds"`  // data field name(s) containing value(s) to concatenate for index key
+//DataIdFld string           `json:"dataIdFld"` // fld in data recs containing key (matches rec key)
+//}
 
-var IndexSettings map[string]IndexSetting
+var IndexSettings map[string]bobb.IndexSetting // see requests_index.go for IndexSetting type
 
 var jsonParser fastjson.Parser
 
@@ -75,8 +76,9 @@ func main() {
 	// ALL RECORDS ARE RETURNED IN 1 REQUEST
 	// FOR VERY LARGE BKTS, A MULTI REQUEST PROCESS USING REQUEST.LIMIT AND RESPONSE.NEXTKEY MAY BE NEEDED
 
-	req := bobb.QryRequest{BktName: request.DataBkt}
-	resp, err := bo.Run(httpClient, bobb.OpQry, req)
+	resp, err := bo.Run(httpClient, bobb.OpGetAll, bobb.GetAllRequest{
+		BktName: request.DataBkt,
+	})
 	checkResp(resp, err)
 	log.Println("dataBkt count", len(resp.Recs))
 
@@ -85,15 +87,20 @@ func main() {
 		if err != nil {
 			log.Fatalf("cannot parse json: %s", err)
 		}
-		v := parsedRec.GetStringBytes(request.DataIdFld)
+		v := parsedRec.GetStringBytes(DataIdFld)
 		if v == nil {
-			log.Fatalln("error getting data key from fld-", request.DataIdFld)
+			log.Fatalln("error getting data key from fld-", DataIdFld)
 			break
 		}
 		dataKey := string(v)
 
-		indexKey := bobb.MergeFlds(parsedRec, request.DataFlds, "|") // merged plain string values
-		indexKey += "|" + strconv.Itoa(i)                            // make unique
+		indexKey, err := bobb.MergeFlds(parsedRec, request.KeyFlds, "|") // merged plain string values
+		if err != nil {
+			// add err handling as desired
+			//log.Fatalf("error merging index fields: %s", err)
+		}
+
+		indexKey += "|" + strconv.Itoa(i) // make unique
 		indexes = append(indexes, bobb.IndexKeyVal{Key: indexKey, Val: dataKey})
 
 		if i < 100 { // used to visually verify index keys look as expected
@@ -129,12 +136,12 @@ func run(bkt string, indexes []bobb.IndexKeyVal, wg *sync.WaitGroup) {
 	log.Println("batch complete")
 }
 
-func getRequestSettings(indexName string) IndexSetting {
+func getRequestSettings(indexName string) bobb.IndexSetting {
 	jsonSettings, err := os.ReadFile(indexSettingsFile)
 	if err != nil {
 		log.Fatalln("error opening indexSettingsFile", err)
 	}
-	IndexSettings = make(map[string]IndexSetting)
+	IndexSettings = make(map[string]bobb.IndexSetting)
 	if err := json.Unmarshal(jsonSettings, &IndexSettings); err != nil {
 		log.Fatalln("json.Unmarshal error on jsonSettings", err)
 	}
@@ -142,7 +149,7 @@ func getRequestSettings(indexName string) IndexSetting {
 	if !found {
 		log.Fatalln("indexName not found in indexSettingsFile", indexName)
 	}
-	if request.DataBkt == "" || request.DataFlds == nil || request.DataIdFld == "" || request.IndexBkt == "" {
+	if request.DataBkt == "" || request.KeyFlds == nil || request.IndexBkt == "" {
 		log.Fatalf("missing value in index_settings.json entry\n %+v \n", request)
 	}
 	return request

@@ -1,6 +1,6 @@
 ## Technical Notes
 
-The underlying data store, Bolt/Bbolt, is a Go based key-value store that is screaming fast, but very minimalistic. It is an embedded db which means it runs as part of the main Go program accessing the db. Only 1 program can access the database file at a time. In Bobb's case, this is the http server, bobb_server.go. Multiple goroutines can read the db at the same time. Bolt allows 1 update request to process at a time, but manages simultaneous requests from multiple goroutines. The database is stored in a single file, which is memory-mapped by the underlying operating system.
+The underlying data store, Bolt/Bbolt, is a Go based key-value store that is screaming fast, but very minimalistic. It is an embedded db which means it runs as part of the main Go program accessing the db. Only 1 program can access the database file at a time. In Bobb's case, this is the http server, bobb_server.go. Bolt allows multiple goroutines to access the db simultaneously, but only a single update request at a time. Bolt takes advantage of multi core hardware. The database is stored in a single file, which is memory-mapped by the underlying operating system.
   
 For details see [bbolt documentation](https://github.com/etcd-io/bbolt?tab=readme-ov-file#caveats--limitations). I recommend reviewing the full readme file.  
 Note - Bobb does not work with nested buckets.  
@@ -15,9 +15,6 @@ Fastjson allows values inside sub structs and slices to be accessed, but Bobb on
 
 Put operations with a large number of records should be split into batches. 
 See the bulkload/bulkload.go for example template program. 
-
-### Information Files 
-Folder "info" contains additional documentation files. See a-index.md for descriptions and links to each.  
 
 **Warning On Memory Use and File Size**
 ```
@@ -60,32 +57,9 @@ Bolt can seek to a key really fast and then read sequentially in key order from 
 **Using a key prefix >**  set StartKey and EndKey with prefix, all records where key prefix matches are included in range.
 
 ### Secondary Indexes  
-These are simply buckets with keys and values. The index key is typically composed of 1 or more values from a data record made unique by appending a value to the end of it. The index value is the key of the data record. The developer is responsible for creating, loading, and maintaining index buckets.  
+These are simply buckets with keys and values. The index key is typically composed of 1 or more values from a data record made unique by appending a value to the end of it.  
   
 Index buckets can speed processing when the data keys don't provide useful start/end keys. If a large number of records must be scanned, it may be faster to not use an index but rather read the data bucket directly. Bobb can query thousands of records very quickly, so the key range doesn't need to be that small.   
-
-The **PutIndex** request is used to load index buckets.
-
-Pgm **indexloader/indexloader.go** can be used to create and bulk load an index bucket. Use it as an example, but feel free to load indexes however you want. Not all records in a bucket need be indexed for every index (think sparse index). 
-
-See **indexrecs/indexrecs.go** for example pgm that loads index records for specific data records.  
-  
-Generally, index records should be created from existing records. The func MergeFlds uses a fastjson parsed record for input. It is a handy way to create index keys from multiple values in the record. See indexloader.go for example.
-
-If the dataset is fairly static, for example once daily updates, a batch process to completely recreate the index
-may be fine. The included indexloader program provides this capability. Periodically rebuilding any index may be a 
-good idea.
-
-If the index must be kept up to date at all times, then when an associated data record is added, a corresponding
-index record must be added. The developer is responsible for implementing this logic. The PutIndex request 
-simplifies adding index records.
-
-**BEWARE**  
-If the index key value changes (due to data record change) and a new record is Put into the index, the original index record must be deleted, else there will be multiple index records pointing to the same data record. Requests using this index may produce invalid results.  The PutIndex request has a feature to facilitate removal of the original index record when a replacement index record is added. The IndexKeyVal field, OldKey, identifies the previous index key which will be automatically deleted. See func updateIndex in demo.go for example.
-
-Records are read sequentially from the index bucket beginning at the start key and directly from the data bucket using the primary data record keys. 
-
-If start/end keys are not specified, all data records are read in index key order. Result records are also returned in this order unless sort order is specified in the Qry request.  
 
 ### Put Logic
 Most higher function databases have separate logic for adding, updating, and replacing records. Bolt just uses Put, which either completely replaces or adds a record depending on the existence of the key or not. Bobb doesn't add additional logic to compensate for this loss of functionality.

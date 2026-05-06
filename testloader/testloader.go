@@ -1,4 +1,4 @@
-// bulkloader.go is an example of how data can be loaded in batches.
+// testloader.go loads test data and is an example of how records can be loaded in batches.
 // Data source is a .csv file with ~85,000 records.
 
 package main
@@ -67,27 +67,26 @@ func main() {
 
 	// upload records to db in batches of batchSize records, using goroutines
 	batchSize := 1000
-	var putReq *bobb.PutRequest
+	var recs [][]byte
 	for i := 0; i < 2; i++ { // loading the same records multiple times to increase bkt size
-		putReq = newPutReq(batchSize)
+		recs = make([][]byte, 0, batchSize)
 		for _, rec := range locationData {
-			rec.Id = fmt.Sprintf("%s-%d", rec.Id, i) // make record id unique since loading the same records i times
-			jsonRec, err := json.Marshal(rec)        // convert each record to []byte
+			jsonRec, err := json.Marshal(rec) // convert each record to []byte
 			if err != nil {
 				log.Fatalln("json.Marshal failed", err)
 			}
-			putReq.Recs = append(putReq.Recs, jsonRec)
-			if len(putReq.Recs) == batchSize {
+			recs = append(recs, jsonRec)
+			if len(recs) == batchSize {
 				wg.Add(1)
-				go run(putReq, wg)
-				putReq = newPutReq(batchSize)
+				go run(recs, wg)
+				recs = make([][]byte, 0, batchSize)
 				time.Sleep(10 * time.Millisecond) // pause may be appropriate for large number of requests
 			}
 		}
 	}
-	if len(putReq.Recs) > 0 {
+	if len(recs) > 0 {
 		wg.Add(1)
-		go run(putReq, wg)
+		go run(recs, wg)
 	}
 	wg.Wait() // wait for all runs to finish before ending program
 
@@ -96,12 +95,31 @@ func main() {
 	qry1() // produce results simulating results for bigqry.go qry1()
 }
 
-func newPutReq(batchSize int) *bobb.PutRequest {
-	return &bobb.PutRequest{
-		BktName:      locationBkt,
-		KeyField:     "id",
-		Recs:         make([][]byte, 0, batchSize),
-		RequiredFlds: []string{"address", "city", "st", "zip"},
+func run(recs [][]byte, wg *sync.WaitGroup) {
+	defer func() {
+		wg.Done()
+		log.Println("-- put request complete")
+	}()
+	log.Println("++ start put request")
+	resp, err := bo.Run(httpClient, bobb.OpPut, bobb.PutRequest{
+		PutParms: []bobb.PutParm{
+			{
+				BktName:      locationBkt,
+				KeyField:     "id",
+				RequiredFlds: []string{"address", "city", "st", "zip"},
+				Recs:         recs,
+				AddKeySuffix: true, // addKeySuffix is used to make each key unique
+			},
+		},
+	})
+	// or using client shortcut func:
+	// bo.Put(httpClient, locationBkt, recs, []string{"address", "city", "st", "zip"}, bo.PutAddKeySuffix)
+
+	if err != nil {
+		log.Fatalln("put req failed", err)
+	}
+	if resp.Status != bobb.StatusOk {
+		log.Fatalln("ERROR", resp.Status, resp.Msg)
 	}
 }
 
@@ -117,6 +135,7 @@ func loadCSVData() {
 	locationData = make([]Location, 0, len(csvRecs))
 
 	// load records that will be 1st in sorted order, used to verify biqqry tests
+
 	for i := 0; i < 5; i++ {
 		firstRec := Location{
 			Id:           fmt.Sprintf("00000-%d", i),
@@ -151,9 +170,15 @@ func loadCSVData() {
 		if csvRec[0] == "" {
 			continue
 		}
+		if hasTab := strings.Contains(csvRec[2], "\t"); hasTab {
+			log.Println("skipping record with tab in city field", csvRec[2])
+			continue
+		}
+
 		locRec := Location{
-			Id: fmt.Sprintf("%s-%d", csvRec[2], i),
+			//Id: fmt.Sprintf("%s-%d", csvRec[2], i),
 			//Id:      csvRec[0],
+			Id:      csvRec[2], //  city used as key, bkt nextSeq auto appended to make each key unique
 			Address: csvRec[1],
 			City:    csvRec[2],
 			St:      csvRec[3],
@@ -207,25 +232,12 @@ func loadCSVData() {
 	}
 }
 
-func run(req *bobb.PutRequest, wg *sync.WaitGroup) {
-	defer func() {
-		wg.Done()
-		log.Println("-- put request complete")
-	}()
-	log.Println("++ start put request")
-	resp, err := bo.Run(httpClient, "put", req)
-	if err != nil {
-		log.Fatalln("put req failed", err)
-	}
-	if resp.Status != bobb.StatusOk {
-		log.Fatalln("ERROR", resp.Status, resp.Msg)
-	}
-}
-
 func showBktContents() {
 	log.Println("getall start")
-	req := bobb.QryRequest{BktName: "location"}
-	resp, err := bo.Run(httpClient, bobb.OpQry, req)
+	resp, err := bo.Run(httpClient, bobb.OpGetAll, bobb.GetAllRequest{
+		BktName: locationBkt,
+		Limit:   100,
+	})
 	if err != nil {
 		log.Fatalln("getall req failed", err)
 	}
@@ -238,13 +250,11 @@ func showBktContents() {
 		locRec := new(Location)
 		json.Unmarshal(rec, locRec)
 		log.Println(i, locRec.Id, locRec.Address, locRec.LocationType, locRec.City, locRec.Notes)
-		if i > 100 {
-			break
-		}
 	}
 	log.Println("complete")
 }
 
+// produce results simulating results for bigqry.go qry1(), for visual comparison purposes.
 func qry1() {
 	matching := make([]int, 0, len(locationData))
 	for i, rec := range locationData {

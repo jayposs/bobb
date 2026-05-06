@@ -28,25 +28,49 @@ func PlainString(in string) string {
 }
 
 // MergeFlds is typically used to create index keys composed of multiple flds merged together.
-// Type FldFormat defined in types.go (FldName, FldType, Length).
+// Type FldFormat defined in types.go (FldName, FldType, Length, StrOption, UseDefault).
 // Separator placed between each value.
-// Values are plain strings (lower case alphanumeric, special chars removed).
 // Each fld value is truncated or padded if needed to set length.
-func MergeFlds(parsedRec *fastjson.Value, flds []FldFormat, separator string) (mergedVal string) {
-	formattedFlds := make([]string, len(flds))
+// UseDefault controls what happens when fld is not found or null in parsedRec.
+// Ex. DefaultNull would return 0 for FldTypeInt, or "" for FldTypeStr if fld value is null.
+// DefaultNever would return error if fld value is null or fld not found.
+func MergeFlds(parsedRec *fastjson.Value, flds []FldFormat, separator string) (mergedVal string, err error) {
+	var bErr *BobbErr
 	var format string
 	var intVal int
 	var strVal string
-	var useDefault string = DefaultAlways
+	var strOption string
+	var useDefault string
+	formattedFlds := make([]string, len(flds))
 	for i, fld := range flds {
+		useDefault = fld.UseDefault
+		if fld.UseDefault == "" {
+			useDefault = DefaultAlways
+		}
+		if !slices.Contains(AllDefaultCodes, useDefault) {
+			return "", fmt.Errorf("MergeFlds, invalid UseDefault code for fld %s, must be one of bobb.DefaultAlways, bobb.DefaultNever, bobb.DefaultIsNull, bobb.DefaultNotFound", fld.FldName)
+		}
 		fmtLength := strconv.Itoa(fld.Length)
 		switch fld.FldType {
 		case FldTypeInt:
-			intVal, _ = parsedRecGetInt(parsedRec, fld.FldName, useDefault) // err ignored
+			intVal, bErr = parsedRecGetInt(parsedRec, fld.FldName, useDefault)
+			if bErr != nil {
+				return "", fmt.Errorf("MergeFlds, error getting int value for fld %s, %s", fld.FldName, bErr.Msg)
+			}
 			format = "%0" + fmtLength + "d"
 			formattedFlds[i] = fmt.Sprintf(format, intVal)
 		case FldTypeStr:
-			strVal, _ = parsedRecGetStr(parsedRec, fld.FldName, useDefault, StrPlain)
+			strOption = fld.StrOption
+			if strOption == "" {
+				strOption = StrLowerCase
+			}
+			if !slices.Contains(AllStrOptions, strOption) {
+				return "", fmt.Errorf("MergeFlds, invalid StrOption for fld %s, must be one of bobb.StrPlain, bobb.StrLowerCase, bobb.StrAsIs", fld.FldName)
+			}
+			strVal, bErr = parsedRecGetStr(parsedRec, fld.FldName, useDefault, strOption)
+			if bErr != nil {
+				return "", fmt.Errorf("MergeFlds, error getting str value for fld %s, %s", fld.FldName, bErr.Msg)
+			}
 			if len(strVal) > fld.Length {
 				strVal = strVal[:fld.Length]
 			}
@@ -63,8 +87,8 @@ func MergeFlds(parsedRec *fastjson.Value, flds []FldFormat, separator string) (m
 
 // parsedRecGetStr returns the string value for specified fld.
 // Parm "option" controls conversion, see Str* codes in codes.go
-// Parm useDefault controls how fld not found or null is handled.
-func parsedRecGetStr(parsedRec *fastjson.Value, fld string, useDefault string, option ...string) (strVal string, bErr *BobbErr) {
+// Parm useDefault controls how fld not found or null is handled (whether ""/no error or error is returned).
+func parsedRecGetStr(parsedRec *fastjson.Value, fld string, useDefault string, option ...string) (returnVal string, bErr *BobbErr) {
 	val := parsedRec.Get(fld)
 	if val == nil { // fld not found in rec
 		if useDefault == DefaultAlways || useDefault == DefaultNotFound {
@@ -82,29 +106,28 @@ func parsedRecGetStr(parsedRec *fastjson.Value, fld string, useDefault string, o
 		bErr = e(ErrFldIsNull, emsg, nil, nil)
 		return
 	}
-	if val.Type() != fastjson.TypeString {
-		emsg := fmt.Sprintf("parsedRecGetStr - fld %s not a string", fld)
+	strBytes, err := val.StringBytes()
+	if err != nil {
+		emsg := fmt.Sprintf("parsedRecGetStr - fld %s error getting string bytes, %s", fld, err.Error())
 		bErr = e(ErrFldType, emsg, nil, nil)
 		return
 	}
-	strBytes := val.GetStringBytes()
+	returnVal = string(strBytes)
 	if len(option) > 0 {
 		switch option[0] {
 		case StrLowerCase:
-			strVal = strings.ToLower(string(strBytes))
+			returnVal = strings.ToLower(returnVal)
 		case StrPlain:
-			strVal = PlainString(string(strBytes))
+			returnVal = PlainString(returnVal)
 		}
-	} else {
-		strVal = string(strBytes)
 	}
 	return
 }
 
 // parsedRecGetInt returns the int value for specified fld.
-func parsedRecGetInt(parsedRec *fastjson.Value, fld string, useDefault string) (intVal int, bErr *BobbErr) {
+// UseDefault controls how fld not found or null is handled (whether 0/no error or error is returned).
+func parsedRecGetInt(parsedRec *fastjson.Value, fld string, useDefault string) (returnVal int, bErr *BobbErr) {
 	val := parsedRec.Get(fld)
-
 	if val == nil { // fld not found in rec
 		if useDefault == DefaultAlways || useDefault == DefaultNotFound {
 			return // returns 0
@@ -113,7 +136,6 @@ func parsedRecGetInt(parsedRec *fastjson.Value, fld string, useDefault string) (
 		bErr = e(ErrFldNotFound, emsg, nil, nil)
 		return
 	}
-
 	if val.Type() == fastjson.TypeNull {
 		if useDefault == DefaultAlways || useDefault == DefaultIsNull {
 			return // returns 0
@@ -122,9 +144,7 @@ func parsedRecGetInt(parsedRec *fastjson.Value, fld string, useDefault string) (
 		bErr = e(ErrFldIsNull, emsg, nil, nil)
 		return
 	}
-
-	var err error
-	intVal, err = val.Int()
+	returnVal, err := val.Int()
 	if err != nil {
 		emsg := fmt.Sprintf("parsedRecGetInt - fld %s not int, %s", fld, err.Error())
 		bErr = e(ErrFldNotFound, emsg, nil, nil)
@@ -140,7 +160,7 @@ var nIntOps = []string{FindEquals, FindLessThan, FindGreaterThan}
 func parsedRecFind(parsedRec *fastjson.Value, conditions []FindCondition) (keep bool, bErr *BobbErr) {
 	var conditionMet bool
 	var n int // compare result  1:greater, -1:less, 0:equal
-	var recValStr, compareValStr string
+	var recValStr string
 	var recValInt int
 	for _, condition := range conditions {
 		conditionMet = false
@@ -149,48 +169,33 @@ func parsedRecFind(parsedRec *fastjson.Value, conditions []FindCondition) (keep 
 			switch condition.StrOption {
 			case StrLowerCase:
 				recValStr, bErr = parsedRecGetStr(parsedRec, condition.Fld, condition.UseDefault, StrLowerCase)
-				if condition.Op == FindInStrList {
-					for i, val := range condition.StrList {
-						condition.StrList[i] = strings.ToLower(val)
-					}
-				} else {
-					compareValStr = strings.ToLower(condition.ValStr)
-				}
 			case StrPlain:
 				recValStr, bErr = parsedRecGetStr(parsedRec, condition.Fld, condition.UseDefault, StrPlain)
-				if condition.Op == FindInStrList {
-					for i, val := range condition.StrList {
-						condition.StrList[i] = PlainString(val)
-					}
-				} else {
-					compareValStr = PlainString(condition.ValStr)
-				}
 			case StrAsIs:
 				recValStr, bErr = parsedRecGetStr(parsedRec, condition.Fld, condition.UseDefault)
-				compareValStr = condition.ValStr
 			default:
 				log.Panicln("invalid findCondition.StrOption", condition.StrOption) // should already be validated
 			}
 			if bErr != nil {
 				return
 			}
-			if slices.Contains(nStrOps, condition.Op) {
-				n = strings.Compare(recValStr, compareValStr)
+			if slices.Contains(nStrOps, condition.Op) { // n indicates if recValStr is less than, equal to, or greater than compareValStr
+				n = strings.Compare(recValStr, condition.ValStr)
 			}
 		case slices.Contains(IntFindOps, condition.Op):
 			recValInt, bErr = parsedRecGetInt(parsedRec, condition.Fld, condition.UseDefault)
 			if bErr != nil {
 				return
 			}
-			if slices.Contains(nIntOps, condition.Op) {
+			if slices.Contains(nIntOps, condition.Op) { // n indicates if recValInt is less than, equal to, or greater than condition.ValInt
 				n = recValInt - condition.ValInt
 			}
 		}
+		// log.Println("parsedRecFind, condition", condition, "recValStr", recValStr, "condition.ValStr", condition.ValStr, "n", n)
 
 		switch condition.Op {
 		case FindExists, FindIsNull:
 			val := parsedRec.Get(condition.Fld)
-			log.Println(condition.Op, val, condition.Fld)
 			if val != nil {
 				if condition.Op == FindExists {
 					conditionMet = true
@@ -211,30 +216,20 @@ func parsedRecFind(parsedRec *fastjson.Value, conditions []FindCondition) (keep 
 				conditionMet = true
 			}
 		case FindStartsWith:
-			if strings.HasPrefix(recValStr, compareValStr) {
+			if strings.HasPrefix(recValStr, condition.ValStr) {
+				conditionMet = true
+			}
+		case FindEndsWith:
+			if strings.HasSuffix(recValStr, condition.ValStr) {
 				conditionMet = true
 			}
 		case FindContains:
-			// if compareValStr ends with "...", it's a prefix match ("abc...")
-			if prefix, prefixMatch := strings.CutSuffix(compareValStr, "..."); prefixMatch { // if compareVal ends with "...", remove it and do prefix match
-				if strings.HasPrefix(recValStr, prefix) {
-					conditionMet = true
-				}
-				break
-			}
-			// if compareValStr begins with "...", it's a suffix match ("...abc")
-			if suffix, suffixMatch := strings.CutPrefix(compareValStr, "..."); suffixMatch { // if compareVal begins with "...", remove it and do suffix match
-				if strings.HasSuffix(recValStr, suffix) {
-					conditionMet = true
-				}
-				break
-			}
-			if strings.Contains(recValStr, compareValStr) {
+			if strings.Contains(recValStr, condition.ValStr) {
 				conditionMet = true
 			}
 		case FindContainsWord:
 			words := strings.Fields(recValStr)
-			if slices.Contains(words, compareValStr) {
+			if slices.Contains(words, condition.ValStr) {
 				conditionMet = true
 			}
 		case FindInStrList:
@@ -260,5 +255,8 @@ func parsedRecFind(parsedRec *fastjson.Value, conditions []FindCondition) (keep 
 		}
 	}
 	keep = true
+
+	// log.Println("parsedRecFind, rec meets all conditions, keep it")
+
 	return // rec meets all conditions
 }
