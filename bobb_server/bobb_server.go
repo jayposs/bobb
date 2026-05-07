@@ -6,13 +6,16 @@ package main
 
 import (
 	"compress/gzip"
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/jayposs/bobb"
@@ -75,7 +78,34 @@ func main() {
 	bobb.ServerStatus.Set("running") // see util.go
 
 	fmt.Println("waiting for requests ...")
-	log.Println(http.ListenAndServe(":"+settings.Port, nil))
+	// log.Println(http.ListenAndServe(":"+settings.Port, nil))
+
+	srv := &http.Server{
+		Addr: ":" + settings.Port,
+	}
+
+	// 1. Run server in a goroutine so it doesn't block
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("listen: %s\n", err)
+		}
+	}()
+
+	// 2. Wait for interrupt signal (Ctrl+C or SIGTERM)
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	log.Println("Shutting down server...")
+
+	// 3. Create a timeout context for the shutdown
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// 4. Shutdown gracefully
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Fatal("Server forced to shutdown:", err)
+	}
+	log.Println("Server exiting")
 }
 
 // Func process executes the request.
