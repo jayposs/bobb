@@ -11,6 +11,7 @@ import (
 
 	"github.com/jayposs/bobb"
 	bo "github.com/jayposs/bobb/client"
+	data "github.com/jayposs/bobb/datatypes" // contains test datatypes used by module programs such as demo
 )
 
 const (
@@ -90,7 +91,7 @@ func loadData(httpClient *http.Client) error {
 		return fmt.Errorf("orderSeqNos do not match expected values: %v", orderSeqNos)
 	}
 
-	var orders = []Order{
+	var orders = []data.Order{
 		{Id: "custA_" + orderSeqNos[0], OrderDate: "2024-05-23", CustomerId: "custA"},
 		{Id: "custB_" + orderSeqNos[1], OrderDate: "2024-06-24", CustomerId: "custB"},
 		{Id: "custC_" + orderSeqNos[2], OrderDate: "2024-07-25", CustomerId: "custC"},
@@ -100,7 +101,7 @@ func loadData(httpClient *http.Client) error {
 		"2024-06-24|000002": "custB_00002",
 		"2024-07-25|000003": "custC_00003",
 	}
-	var items = []OrderItem{
+	var items = []data.OrderItem{
 		{Id: orders[0].Id + "_1", OrderId: orders[0].Id, ItemNo: 1, ProductId: "prodid_a", Qty: 2},
 		{Id: orders[0].Id + "_2", OrderId: orders[0].Id, ItemNo: 2, ProductId: "prodid_a", Qty: 1},
 		{Id: orders[0].Id + "_3", OrderId: orders[0].Id, ItemNo: 3, ProductId: "prodid_x", Qty: 5},
@@ -128,7 +129,7 @@ func loadData(httpClient *http.Client) error {
 	}
 	// verify orders in db matches order sent
 	for _, order := range orders {
-		var savedOrder Order
+		var savedOrder data.Order
 		bo.GetOne(httpClient, orderBkt, order.Id, &savedOrder)
 		if order != savedOrder {
 			return fmt.Errorf("loadData db order does not match sent order for order %s", order.Id)
@@ -136,7 +137,7 @@ func loadData(httpClient *http.Client) error {
 	}
 	// verify order items in db matches items sent
 	for _, item := range items {
-		var savedItem OrderItem
+		var savedItem data.OrderItem
 		bo.GetOne(httpClient, orderItemBkt, item.Id, &savedItem)
 		if item != savedItem {
 			return fmt.Errorf("loadData db order item does not match sent order item for item %s", item.Id)

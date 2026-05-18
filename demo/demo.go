@@ -15,6 +15,7 @@ import (
 
 	"github.com/jayposs/bobb"
 	bo "github.com/jayposs/bobb/client"
+	data "github.com/jayposs/bobb/datatypes" // contains test datatypes used by module programs such as demo
 )
 
 const (
@@ -26,8 +27,8 @@ const (
 
 var httpClient *http.Client
 
-var locationData map[string]Location // keyed by Location.Id, loaded from location_data.json
-var requestData map[string]Request   // keyed by Request.Id, loaded from request_data.json
+var locationData map[string]data.Location // keyed by Location.Id, loaded from location_data.json
+var requestData map[string]data.Request   // keyed by Request.Id, loaded from request_data.json
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
@@ -173,7 +174,7 @@ func copyDB() {
 		})
 		return nil
 	})
-	var copyRec Location
+	var copyRec data.Location
 	for origKey, origRec := range locationData {
 		json.Unmarshal(dbRecs[origKey], &copyRec)
 		compare(origRec, copyRec, "copyDB")
@@ -200,7 +201,7 @@ func get(recIds ...string) {
 	}
 	log.Println("get error as expected:", resp.Errs[0].ErrCode, string(resp.Errs[0].Key))
 
-	results := bo.JsonToMap(resp.Recs, Location{})
+	results := bo.JsonToMap(resp.Recs, data.Location{})
 	for _, id := range recIds {
 		if id == "badkey" {
 			continue
@@ -220,7 +221,7 @@ func getAll() {
 	resp, err := bo.Run(httpClient, bobb.OpGetAll, bobb.GetAllRequest{BktName: locationBkt})
 	checkResp(resp, err, "getAll")
 
-	results := bo.JsonToMap(resp.Recs, Location{})
+	results := bo.JsonToMap(resp.Recs, data.Location{})
 	log.Println("getAll - location records")
 	for k, v := range results {
 		log.Printf("key: %s, rec: %+v\n", k, v)
@@ -254,7 +255,7 @@ func putOne(id string) {
 func getOne(id string) {
 	log.Println("-- getOne starting -----")
 
-	var result Location
+	var result data.Location
 	if err := bo.GetOne(httpClient, locationBkt, id, &result); err != nil {
 		log.Fatalln("getOne:", err)
 	}
@@ -316,7 +317,7 @@ func getAllRange() {
 	})
 	checkResp(resp, err, "getAllRange")
 
-	results := bo.JsonToMap(resp.Recs, Location{})
+	results := bo.JsonToMap(resp.Recs, data.Location{})
 	for id := range results {
 		if id < start || id > end {
 			log.Fatalln("getAllRange: result key out of range", id)
@@ -404,7 +405,7 @@ func qryFindOrAndSort() {
 	if len(resp.Recs) != len(matchingIds) {
 		log.Fatalf("qryFindOrAndSort: expected %d recs, got %d", len(matchingIds), len(resp.Recs))
 	}
-	results := bo.JsonToSlice(resp.Recs, Location{})
+	results := bo.JsonToSlice(resp.Recs, data.Location{})
 	for i, id := range matchingIds {
 		compare(locationData[id], results[i], "qryFindOrAndSort")
 	}
@@ -437,7 +438,7 @@ func qryFindMultiple() {
 	if len(resp.Recs) != len(matchingIds) {
 		log.Fatalf("qryFindMultiple: expected %d recs, got %d", len(matchingIds), len(resp.Recs))
 	}
-	results := bo.JsonToSlice(resp.Recs, Location{})
+	results := bo.JsonToSlice(resp.Recs, data.Location{})
 	for i, id := range matchingIds {
 		compare(locationData[id], results[i], "qryFindMultiple")
 	}
@@ -467,7 +468,7 @@ func qryFindNot() {
 	if len(resp.Recs) != len(matchingIds) {
 		log.Fatalf("qryFindNot: expected %d recs, got %d", len(matchingIds), len(resp.Recs))
 	}
-	results := bo.JsonToSlice(resp.Recs, Location{})
+	results := bo.JsonToSlice(resp.Recs, data.Location{})
 	for i, id := range matchingIds {
 		compare(locationData[id], results[i], "qryFindNot")
 	}
@@ -561,7 +562,7 @@ func qryInList() {
 	if len(resp.Recs) != len(matchingIds) {
 		log.Fatalf("qryInList FindInIntList: expected %d recs, got %d", len(matchingIds), len(resp.Recs))
 	}
-	results := bo.JsonToSlice(resp.Recs, Location{})
+	results := bo.JsonToSlice(resp.Recs, data.Location{})
 	for i, id := range matchingIds {
 		compare(locationData[id], results[i], "qryInList FindInIntList")
 	}
@@ -579,7 +580,7 @@ func qryInList() {
 	if resp.GetCnt != len(matchingIds) {
 		log.Fatalf("qryInList FindInStrList: expected %d recs, got %d", len(matchingIds), len(resp.Recs))
 	}
-	results = bo.JsonToSlice(resp.Recs, Location{})
+	results = bo.JsonToSlice(resp.Recs, data.Location{})
 	for i, id := range matchingIds {
 		compare(locationData[id], results[i], "qryInList FindInStrList")
 	}
@@ -605,7 +606,7 @@ func qryFindNull() {
 	if len(resp.Recs) != len(matchingIds) {
 		log.Fatalf("qryFindNull: expected %d recs, got %d", len(matchingIds), len(resp.Recs))
 	}
-	results := bo.JsonToSlice(resp.Recs, Location{})
+	results := bo.JsonToSlice(resp.Recs, data.Location{})
 	for i, id := range matchingIds {
 		compare(locationData[id], results[i], "qryFindNull")
 	}
@@ -774,7 +775,7 @@ func getIndex() {
 
 	// returned in zip-code order: 35422(101), 54321(102), 54633(104-b→104), 54711(103)
 	matchingIds := []string{"101", "102", "104", "103"}
-	results := bo.JsonToSlice(resp.Recs, Location{})
+	results := bo.JsonToSlice(resp.Recs, data.Location{})
 	for i, id := range matchingIds {
 		compare(locationData[id], results[i], "getIndex")
 	}
@@ -801,7 +802,7 @@ func qryIndex() {
 	checkResp(resp, err, "qryIndex")
 
 	matchingIds := []string{"999", "103"}
-	results := bo.JsonToSlice(resp.Recs, Location{})
+	results := bo.JsonToSlice(resp.Recs, data.Location{})
 	for i, id := range matchingIds {
 		compare(locationData[id], results[i], "qryIndex")
 	}
@@ -925,7 +926,7 @@ func update(id string) {
 	resp, err := bo.PutOne(httpClient, locationBkt, &currRec, nil)
 	checkResp(resp, err, "update - PutOne")
 
-	var newRec Location
+	var newRec data.Location
 	if err := bo.GetOne(httpClient, locationBkt, id, &newRec); err != nil {
 		log.Fatalln("update: post-update GetOne failed:", err)
 	}
@@ -943,7 +944,7 @@ func deleteRecs(ids ...string) {
 	resp, err := bo.Run(httpClient, bobb.OpDelete, bobb.DeleteRequest{BktName: locationBkt, Keys: ids})
 	checkResp(resp, err, "deleteRecs")
 
-	var rec Location
+	var rec data.Location
 	if err = bo.GetOne(httpClient, locationBkt, ids[0], &rec); err.Error() != bobb.ErrNotFound {
 		log.Fatalln("deleteRecs: record should not exist after delete:", ids[0])
 	}
@@ -1267,11 +1268,11 @@ func loadLocationData(fileName string) {
 	if err != nil {
 		log.Fatalln("loadLocationData: error reading file:", err)
 	}
-	var inputRecs []Location
+	var inputRecs []data.Location
 	if err := json.Unmarshal(jsonData, &inputRecs); err != nil {
 		log.Fatalln("loadLocationData: json.Unmarshal failed:", err)
 	}
-	locationData = make(map[string]Location, len(inputRecs))
+	locationData = make(map[string]data.Location, len(inputRecs))
 	for _, rec := range inputRecs {
 		locationData[rec.Id] = rec
 		log.Println(rec)
@@ -1283,11 +1284,11 @@ func loadRequestData(fileName string) {
 	if err != nil {
 		log.Fatalln("loadRequestData: error reading file:", err)
 	}
-	var inputRecs []Request
+	var inputRecs []data.Request
 	if err := json.Unmarshal(jsonData, &inputRecs); err != nil {
 		log.Fatalln("loadRequestData: json.Unmarshal failed:", err)
 	}
-	requestData = make(map[string]Request, len(inputRecs))
+	requestData = make(map[string]data.Request, len(inputRecs))
 	for _, rec := range inputRecs {
 		log.Printf("%+v", rec)
 		requestData[rec.Id] = rec
@@ -1295,7 +1296,7 @@ func loadRequestData(fileName string) {
 }
 
 // compare asserts that two Location values have identical field values.
-func compare(original, result Location, funcName string) {
+func compare(original, result data.Location, funcName string) {
 	originalStr := original.Id + original.Address + original.City + original.St + original.Zip + original.LastActionDt
 	resultStr := result.Id + result.Address + result.City + result.St + result.Zip + result.LastActionDt
 	if originalStr != resultStr {

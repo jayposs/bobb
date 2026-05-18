@@ -13,29 +13,6 @@ import (
 
 const locationBkt = "location"
 
-type Location struct {
-	Id           string   `json:"id"`
-	Address      string   `json:"address"`
-	City         string   `json:"city"`
-	St           string   `json:"st"`
-	Zip          string   `json:"zip"`
-	LocationType int      `json:"locationType"`
-	LastActionDt string   `json:"lastActionDt"` // "yyyy-mm-dd"
-	Notes        []string `json:"notes"`
-	A            string   `json:"a"`
-	B            string   `json:"b"`
-	C            string   `json:"c"`
-	D            string   `json:"d"`
-	ManagerId    string   `json:"managerId"`
-	ManagerName  string   `json:"manager_name,omitempty"`  // used for join testing in bigqry.go
-	ManagerLevel string   `json:"manager_level,omitempty"` // used for join testing in bigqry.go
-	Long1        string
-	Long2        string
-	Long3        string
-	Int1         int
-	Int2         int
-}
-
 var httpClient = new(http.Client)
 
 func main() {

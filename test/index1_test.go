@@ -8,6 +8,7 @@ import (
 
 	"github.com/jayposs/bobb"
 	bo "github.com/jayposs/bobb/client"
+	data "github.com/jayposs/bobb/datatypes" // contains test datatypes used by module programs such as demo
 )
 
 // -- testIndexSetting -------------------------------------------
@@ -46,7 +47,7 @@ func TestIndexing1(t *testing.T) {
 	checkResp(resp, err, "testIndexSetting - IndexSettingRequest")
 
 	// put initial test records - PutRequest should auto-create index entries
-	testRecs := []Location{
+	testRecs := []data.Location{
 		{Id: "t1", City: "Memphis", St: "TN", Address: "1 Elm St", Zip: "38101"},
 		{Id: "t2", City: "Austin", St: "TX", Address: "2 Oak Ave", Zip: "78701"},
 		{Id: "t3", City: "Portland", St: "OR", Address: "3 Pine Rd", Zip: "97201"},
@@ -101,7 +102,7 @@ func TestIndexing1(t *testing.T) {
 	resp, err = bo.Run(httpClient, bobb.OpGetAll, getAllReq)
 	checkResp(resp, err, "testIndexSetting - GetAll via index")
 
-	results := bo.JsonToSlice(resp.Recs, Location{})
+	results := bo.JsonToSlice(resp.Recs, data.Location{})
 	if len(results) != len(testRecs) {
 		log.Fatalf("testIndexSetting - GetAll returned %d recs, expected %d", len(results), len(testRecs))
 	}

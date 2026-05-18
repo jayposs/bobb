@@ -9,6 +9,7 @@ import (
 
 	"github.com/jayposs/bobb"
 	bo "github.com/jayposs/bobb/client"
+	data "github.com/jayposs/bobb/datatypes"
 )
 
 const (
@@ -17,73 +18,14 @@ const (
 	qryZipIndex = "qry_test_zip_index"
 )
 
-// Request type used to test joins with Location
-type Request struct {
-	Id              string `json:"id"`
-	LocationId      string `json:"locationId"` // key of related rec in Location bkt
-	Description     string `json:"description"`
-	LocationSt      string `json:"location_st,omitempty"`      // loaded from joined Location
-	LocationCity    string `json:"location_city,omitempty"`    // loaded from joined Location
-	LocationAddress string `json:"location_address,omitempty"` // loaded from joined Location
-}
-
-func (rec Request) RecId() string {
-	return rec.Id
-}
-
-// Agent is internal to Location
-type Agent struct {
-	Id   int    `json:"id"`
-	Name string `json:"name"`
-}
-
-type Location struct {
-	Id           string   `json:"id"`
-	Address      string   `json:"address"`
-	City         string   `json:"city"`
-	St           string   `json:"st"`
-	Zip          string   `json:"zip"`
-	LocationType int      `json:"locationType"`
-	LastActionDt string   `json:"lastActionDt"` // "yyyy-mm-dd"
-	Notes        []string `json:"notes"`
-	LocAgent     Agent    `json:"agent"`
-	NullTest     *string  `json:"nulltest"` // used for testing FindIsNull
-}
-
-func (rec Location) RecId() string {
-	return rec.Id
-}
-
-type Order struct {
-	Id         string `json:"id"` // customerid_bktseqno
-	OrderDate  string `json:"orderDate"`
-	CustomerId string `json:"customerId"`
-}
-
-func (rec Order) RecId() string {
-	return rec.Id
-}
-
-type OrderItem struct {
-	Id        string `json:"id"` // orderid_itemno
-	OrderId   string `json:"orderId"`
-	ItemNo    int    `json:"itemNo"`
-	ProductId string `json:"productId"`
-	Qty       int    `json:"qty"`
-}
-
-func (rec OrderItem) RecId() string {
-	return rec.Id
-}
-
 // qryLocs is the controlled dataset shared across all QryRequest subtests.
-var qryLocs []Location
+var qryLocs []data.Location
 
 // qryNonNullStr is a non-nil target used to set NullTest on select records.
 var qryNonNullStr = "set"
 
 // ids extracts Id fields from a slice of Location records for order assertions.
-func ids(locs []Location) []string {
+func ids(locs []data.Location) []string {
 	result := make([]string, len(locs))
 	for i, loc := range locs {
 		result[i] = loc.Id
@@ -123,7 +65,7 @@ func setupQryTest(t *testing.T, httpClient *http.Client) {
 	// LocationType distribution: 1→{001,003,006,009}, 2→{002,005,008}, 3→{004,007,010}
 	// State distribution:        TX→{001,005,008}, MA→{002}, IL→{003}, CO→{004},
 	//                            AZ→{006}, WI→{007}, IN→{009}, FL→{010}
-	qryLocs = []Location{
+	qryLocs = []data.Location{
 		{Id: "001", City: "Austin", St: "TX", Zip: "78701", LocationType: 1, LastActionDt: "2023-01-15", Address: "100 Main St"},
 		{Id: "002", City: "Boston", St: "MA", Zip: "02101", LocationType: 2, LastActionDt: "2023-03-20", Address: "200 Oak Ave"},
 		{Id: "003", City: "Chicago", St: "IL", Zip: "60601", LocationType: 1, LastActionDt: "2023-06-01", Address: "300 Elm Rd"},
@@ -142,7 +84,7 @@ func setupQryTest(t *testing.T, httpClient *http.Client) {
 
 	// 3 Request records for join subtests.
 	// req001, req002 → Austin (001, 005); req003 → Houston (008)
-	joinRecs := []Request{
+	joinRecs := []data.Request{
 		{Id: "req001", LocationId: "001", Description: "routine inspection"},
 		{Id: "req002", LocationId: "005", Description: "urgent repair"},
 		{Id: "req003", LocationId: "008", Description: "routine maintenance"},
@@ -226,7 +168,7 @@ func TestQry(t *testing.T) {
 		if resp.GetCnt != 1 {
 			t.Errorf("FindContainsWord: expected 1, got %d", resp.GetCnt)
 		}
-		results := bo.JsonToSlice(resp.Recs, Location{})
+		results := bo.JsonToSlice(resp.Recs, data.Location{})
 		if results[0].Id != "007" {
 			t.Errorf("FindContainsWord: expected id 007, got %s", results[0].Id)
 		}
@@ -472,7 +414,7 @@ func TestQry(t *testing.T) {
 		if err := checkResp_qry_test(resp, err, "SortAscStr"); err != nil {
 			t.Error(err)
 		}
-		results := bo.JsonToSlice(resp.Recs, Location{})
+		results := bo.JsonToSlice(resp.Recs, data.Location{})
 		if len(results) != 10 {
 			t.Fatalf("SortAscStr: expected 10 recs, got %d", len(results))
 		}
@@ -496,7 +438,7 @@ func TestQry(t *testing.T) {
 		if err := checkResp_qry_test(resp, err, "SortDescStr"); err != nil {
 			t.Error(err)
 		}
-		results = bo.JsonToSlice(resp.Recs, Location{})
+		results = bo.JsonToSlice(resp.Recs, data.Location{})
 		if results[0].City != "Jacksonville" {
 			t.Errorf("SortDescStr: expected first Jacksonville, got %s", results[0].City)
 		}
@@ -515,7 +457,7 @@ func TestQry(t *testing.T) {
 		if err := checkResp_qry_test(resp, err, "MultiSort"); err != nil {
 			t.Error(err)
 		}
-		results = bo.JsonToSlice(resp.Recs, Location{})
+		results = bo.JsonToSlice(resp.Recs, data.Location{})
 		if results[0].Id != "001" {
 			t.Errorf("MultiSort: expected first id 001, got %s (city=%s type=%d)", results[0].Id, results[0].City, results[0].LocationType)
 		}
@@ -534,7 +476,7 @@ func TestQry(t *testing.T) {
 		if err := checkResp_qry_test(resp, err, "SortAscInt"); err != nil {
 			t.Error(err)
 		}
-		results := bo.JsonToSlice(resp.Recs, Location{})
+		results := bo.JsonToSlice(resp.Recs, data.Location{})
 		if len(results) != 10 {
 			t.Fatalf("SortAscInt: expected 10 recs, got %d", len(results))
 		}
@@ -558,7 +500,7 @@ func TestQry(t *testing.T) {
 		if err := checkResp_qry_test(resp, err, "SortDescInt"); err != nil {
 			t.Error(err)
 		}
-		results = bo.JsonToSlice(resp.Recs, Location{})
+		results = bo.JsonToSlice(resp.Recs, data.Location{})
 		if results[0].LocationType != 3 {
 			t.Errorf("SortDescInt: expected first locationType 3, got %d", results[0].LocationType)
 		}
@@ -582,7 +524,7 @@ func TestQry(t *testing.T) {
 		if err := checkResp_qry_test(resp, err, "Limit"); err != nil {
 			t.Error(err)
 		}
-		results := bo.JsonToSlice(resp.Recs, Location{})
+		results := bo.JsonToSlice(resp.Recs, data.Location{})
 		if !slices.Equal(ids(results), []string{"001", "002", "003"}) {
 			t.Errorf("Limit: expected [001 002 003], got %v", ids(results))
 		}
@@ -603,7 +545,7 @@ func TestQry(t *testing.T) {
 		if resp.GetCnt != 3 {
 			t.Errorf("Top: expected 3, got %d", resp.GetCnt)
 		}
-		results = bo.JsonToSlice(resp.Recs, Location{})
+		results = bo.JsonToSlice(resp.Recs, data.Location{})
 		if results[0].City != "Austin" || results[2].City != "Boston" {
 			t.Errorf("Top: unexpected order: cities are %v", func() []string {
 				c := make([]string, len(results))
@@ -628,7 +570,7 @@ func TestQry(t *testing.T) {
 		if resp.GetCnt != 5 {
 			t.Errorf("Limit+Sort: expected 5, got %d", resp.GetCnt)
 		}
-		results = bo.JsonToSlice(resp.Recs, Location{})
+		results = bo.JsonToSlice(resp.Recs, data.Location{})
 		if results[4].City != "Denver" {
 			t.Errorf("Limit+Sort: expected last city Denver, got %s", results[4].City)
 		}
@@ -645,7 +587,7 @@ func TestQry(t *testing.T) {
 		if err := checkResp_qry_test(resp, err, "KeyRange"); err != nil {
 			t.Error(err)
 		}
-		results := bo.JsonToSlice(resp.Recs, Location{})
+		results := bo.JsonToSlice(resp.Recs, data.Location{})
 		if !slices.Equal(ids(results), []string{"003", "004", "005", "006", "007"}) {
 			t.Errorf("KeyRange: expected 003–007, got %v", ids(results))
 		}
@@ -662,7 +604,7 @@ func TestQry(t *testing.T) {
 		if resp.GetCnt != 1 {
 			t.Errorf("PrefixMatch: expected 1, got %d", resp.GetCnt)
 		}
-		results = bo.JsonToSlice(resp.Recs, Location{})
+		results = bo.JsonToSlice(resp.Recs, data.Location{})
 		if results[0].Id != "005" {
 			t.Errorf("PrefixMatch: expected id 005, got %s", results[0].Id)
 		}
@@ -714,7 +656,7 @@ func TestQry(t *testing.T) {
 			t.Errorf("JoinsBeforeFind: expected 2, got %d", resp.GetCnt)
 		}
 		// Verify joined field appears in the returned record
-		var req Request
+		var req data.Request
 		if jsonErr := json.Unmarshal(resp.Recs[0], &req); jsonErr != nil {
 			t.Fatalf("JoinsBeforeFind: unmarshal error: %v", jsonErr)
 		}
@@ -746,7 +688,7 @@ func TestQry(t *testing.T) {
 		if resp.GetCnt != 1 {
 			t.Errorf("JoinsAfterFind: expected 1, got %d", resp.GetCnt)
 		}
-		var req Request
+		var req data.Request
 		if jsonErr := json.Unmarshal(resp.Recs[0], &req); jsonErr != nil {
 			t.Fatalf("JoinsAfterFind: unmarshal error: %v", jsonErr)
 		}
@@ -771,7 +713,7 @@ func TestQry(t *testing.T) {
 		if resp.GetCnt != 2 {
 			t.Errorf("IndexBkt: expected 2, got %d", resp.GetCnt)
 		}
-		results := bo.JsonToSlice(resp.Recs, Location{})
+		results := bo.JsonToSlice(resp.Recs, data.Location{})
 		for _, r := range results {
 			if r.City != "Austin" {
 				t.Errorf("IndexBkt: expected Austin record, got city=%s id=%s", r.City, r.Id)

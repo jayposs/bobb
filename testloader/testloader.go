@@ -9,6 +9,7 @@ import (
 
 	"github.com/jayposs/bobb"
 	bo "github.com/jayposs/bobb/client"
+	data "github.com/jayposs/bobb/datatypes" // contains test datatypes used by module programs such as demo
 
 	"encoding/csv"
 	"encoding/json"
@@ -22,30 +23,7 @@ import (
 
 const locationBkt = "location"
 
-type Location struct {
-	Id           string   `json:"id"`
-	Address      string   `json:"address"`
-	City         string   `json:"city"`
-	St           string   `json:"st"`
-	Zip          string   `json:"zip"`
-	LocationType int      `json:"locationType"`
-	LastActionDt string   `json:"lastActionDt"` // "yyyy-mm-dd"
-	Notes        []string `json:"notes"`
-	A            string   `json:"a"`
-	B            string   `json:"b"`
-	C            string   `json:"c"`
-	D            string   `json:"d"`
-	ManagerId    string   `json:"managerId"`
-	ManagerName  string   `json:"manager_name,omitempty"`  // used for join testing in bigqry.go
-	ManagerLevel string   `json:"manager_level,omitempty"` // used for join testing in bigqry.go
-	Long1        string
-	Long2        string
-	Long3        string
-	Int1         int
-	Int2         int
-}
-
-var locationData []Location // loaded with data from csv file by loadCSVData func below
+var locationData []data.Location // loaded with data from csv file by loadCSVData func below
 
 var httpClient *http.Client = new(http.Client)
 
@@ -132,12 +110,12 @@ func loadCSVData() {
 	reader := csv.NewReader(file)
 	csvRecs, err := reader.ReadAll()
 
-	locationData = make([]Location, 0, len(csvRecs))
+	locationData = make([]data.Location, 0, len(csvRecs))
 
 	// load records that will be 1st in sorted order, used to verify biqqry tests
 
 	for i := 0; i < 5; i++ {
-		firstRec := Location{
+		firstRec := data.Location{
 			Id:           fmt.Sprintf("00000-%d", i),
 			Address:      fmt.Sprintf("000 address-%d", i),
 			City:         fmt.Sprintf("aaa city-%d", i),
@@ -150,7 +128,7 @@ func loadCSVData() {
 	}
 	// load records that will be last in sorted order, used to verify biqqry tests
 	for i := 0; i < 5; i++ {
-		lastRec := Location{
+		lastRec := data.Location{
 			Id:           fmt.Sprintf("99999-%d", i),
 			Address:      fmt.Sprintf("999 address-%d", i),
 			City:         fmt.Sprintf("zzz city-%d", i),
@@ -175,7 +153,7 @@ func loadCSVData() {
 			continue
 		}
 
-		locRec := Location{
+		locRec := data.Location{
 			//Id: fmt.Sprintf("%s-%d", csvRec[2], i),
 			//Id:      csvRec[0],
 			Id:      csvRec[2], //  city used as key, bkt nextSeq auto appended to make each key unique
@@ -247,7 +225,7 @@ func showBktContents() {
 	log.Println("getall done")
 	log.Println("cnt", len(resp.Recs))
 	for i, rec := range resp.Recs {
-		locRec := new(Location)
+		locRec := new(data.Location)
 		json.Unmarshal(rec, locRec)
 		log.Println(i, locRec.Id, locRec.Address, locRec.LocationType, locRec.City, locRec.Notes)
 	}
