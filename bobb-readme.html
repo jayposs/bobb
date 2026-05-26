@@ -1,0 +1,35 @@
+<pre><font color="#333333">●</font> <b>Bobb — JSON Database with HTTP Access</b>                                                                                                                                              
+                                                                                                                                                                                              
+  Bobb is a lightweight JSON database server for Go applications. It wraps <font color="#3465A4">bbolt</font> — a proven embedded key-value store — and adds an HTTP layer, a query engine, and automatic secondary index  
+  management on top of it.                                                                                                                                                                    
+                                                                                                                                                                                              
+  <b>What it gives you</b>
+
+  - <b>Simple data model.</b> Records are JSON objects stored in named buckets. Each record is keyed by a string field of your choice (e.g. <font color="#3465A4">&quot;id&quot;</font>). No schema definition required.                    
+  - <b>HTTP access.</b> The server runs as a standalone process. Any number of client programs connect to it over HTTP using the provided Go client library, so multiple services can share one
+  database safely.                                                                                                                                                                            
+  - <b>Query engine.</b> Filter records with conditions on string fields (<font color="#3465A4">StartsWith</font>, <font color="#3465A4">Contains</font>, <font color="#3465A4">ContainsWord</font>, <font color="#3465A4">Before</font>, <font color="#3465A4">After</font>, <font color="#3465A4">Matches</font>, <font color="#3465A4">InList</font>) and integer fields (<font color="#3465A4">Equals</font>, <font color="#3465A4">LessThan</font>, <font color="#3465A4">GreaterThan</font>,
+  <font color="#3465A4">InList</font>). Combine conditions with AND or OR logic. Sort results by one or more fields, ascending or descending. Paginate with <font color="#3465A4">Limit</font>/<font color="#3465A4">Top</font> and <font color="#3465A4">NextKey</font>.                                         
+  - <b>Secondary indexes.</b> Declare an index once via <font color="#3465A4">IndexSettingRequest</font> and bobb automatically maintains it on every write — including updates. Query a bucket through an index to read records
+  in index order or restrict the scan to a key range.                                                                                                                                         
+  - <b>Joins.</b> Pull fields from a related bucket into query results. Joins can run before or after the find step, so joined values can participate in filter conditions or be used only for
+  sorting and display.                                                                                                                                                                        
+  - <b>Standard operations.</b> Get by key, get all, key range reads, put (single or batch, multiple buckets in one request), delete, export to JSON, copy the live database to a file.
+                                                                                                                                                                                              
+  <b>Good fit for</b>    
+                                                                                                                                                                                              
+  - Go applications that need a persistent, queryable store without the overhead of a full SQL database or a separate database server to operate.                                             
+  - Projects where multiple processes or services need to share data through a simple HTTP interface.
+  - Workloads with moderate data volumes where the simplicity of JSON records and named buckets is a better match than a relational schema.                                                   
+                                                                                                                                                                                              
+  <b>Not a good fit for</b>                                                                                                                                                                          
+                                                                                                                                                                                              
+  - Very large datasets or high write throughput — bbolt is a single-writer database, so Bobb inherits that constraint.                                                                       
+  - Applications that need transactions spanning multiple unrelated operations, complex aggregations, or full-text search.
+  - Environments that require replication or high availability.                                                                                                                               
+                                                                                                                                                                                              
+  <b>Getting started</b>                                                                                                                                                                             
+                                                                                                                                                                                              
+  The server is a single Go binary configured with a small JSON settings file. Clients import the <font color="#3465A4">github.com/jayposs/bobb</font> and <font color="#3465A4">github.com/jayposs/bobb/client</font> packages, point <font color="#3465A4">bo.BaseURL</font> at the
+   server, and start making typed requests. The <font color="#3465A4">demo/</font> directory contains a complete working example that exercises every feature.
+                                                                                                                                                              </pre>
