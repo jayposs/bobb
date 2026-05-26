@@ -1,0 +1,107 @@
+# type QryRequest struct {
+#	  BktName         string      // primary data bkt
+#	  IndexBkt        string      // optional index bkt name, start/end keys use index
+#	  Criteria        []FindGroup // if a record meets all conditions in any FindGroup, it is included in results
+#	  SortKeys        []SortKey   // defines sort order, if omitted ressults returned in key order
+#	  StartKey        string      // begin range, 1st key >=
+#	  EndKey          string      // end range, last key <=
+#	  Limit           int         // limits results before sort step
+#	  Top             int         // limits results after sort step
+#	  ErrLimit        int         // run stops when ErrLimit exceeded, default 0, settings.MaxErrs limit if -1
+#	  JoinsBeforeFind []Join      // joined values can be used in find step (adds processing time)
+#	  JoinsAfterFind  []Join      // joined values can be used for sort step but not find step
+#	  CountOnly       bool        // if true, Response.Recs is nil, count in Response.GetCnt
+#}
+
+# type FindGroup []FindCondition
+
+# type FindCondition struct {
+#	  Fld        string   // field containing compare value
+#	  Op         string   // defines match operation and value type
+#	  ValStr     string   // for string ops, this value also converted based on StrOption
+#	  ValInt     int      // for int Ops
+#	  StrList    []string // used by op FindInStrList
+#	  IntList    []int    // used by op FindInIntList
+#	  Not        bool     // exclude records that meet condition
+#	  UseDefault string   // controls what default value is used, see Default* codes in codes.go
+#	  StrOption  string   // controls string conversion, see Str* codes in codes.go, default StrLowerCase
+# }
+
+# type SortKey struct {
+#	  Fld        string // name of field
+#	  Dir        string // direction (asc/desc) and field type (str/int)
+#	  UseDefault string // controls what value is used when fld NotFound or IsNull, see codes.go
+# }
+
+# type Join struct {
+#	  JoinBkt    string // name of related bkt where value is pulled from
+#	  JoinFld    string // fld in primary rec containing key value of join rec
+#	  FromFld    string // fld in join rec where value comes from
+#	  ToFld      string // fld in primary rec where value is loaded
+#	  UseDefault bool   // if join problem, use default value, no error
+# }
+
+# ------------------------------------------------------------------------------------------------
+
+# Qry Request Parameters
+bktname: location
+indexbkt:
+criteria: [  
+  [        
+    {fld: "address", op: "contains" , valstr: "green" , valint: , strlist: , intlist: , not: , usedefault: always , stroption: },
+    {fld: "zip", op: "before", valstr: "30000" , valint: , strlist: , intlist: , not: , usedefault: always , stroption: }
+  ],
+  # or
+  [ 
+    {fld: "address" , op: "contains" , valstr: "red", valint: , strlist: , intlist: , not: , usedefault: always , stroption: }
+  ]
+]
+sortkeys: [
+  {fld: "city" , dir: "ascstr" , usedefault: }  # ascint, descstr, descint
+]
+startkey:
+endkey:
+limit: 50
+top: 
+errlimit: 10
+# joinsbeforefind: [
+ # {joinbkt: , joinfld: , fromfld: , tofld: , usedefault: }
+# ]
+# joinsafterfind: [
+  #{joinbkt: , joinfld: , fromfld: , tofld: , usedefault: }
+#]
+countonly:
+
+# ----------------------------------------------------------------------
+
+# -- FindCondition Op Codes ----------------------------------
+#	FindContainsWord = "containsword" // str - whole word match
+#	FindMatches      = "matches"      // str - exact match
+#	FindStartsWith   = "startswith"   // str - prefix match
+#	FindEndsWith     = "endswith"     // str - suffix match
+#	FindBefore       = "before"       // str - less than compare value
+#	FindAfter        = "after"        // str - greater than compare value
+#	FindInStrList    = "instrlist"    // str - in list
+
+#	FindLessThan    = "lessthan"    // int
+#	FindGreaterThan = "greaterthan" // int
+#	FindEquals      = "equals"      // int
+#	FindInIntList   = "inintlist"   // int
+
+#	FindExists = "exists" // any type
+#	FindIsNull = "isnull" // any type
+
+#	FindNot = true // used to set FindCondition.Not field
+
+# -- StrOption values -------------------------------------------
+
+#	StrLowerCase = "lowercase" // value converted to lowercase
+#	StrPlain     = "plain"     // value converted to lowercase + non alphanumeric removed
+#	StrAsIs      = "asis"      // value used asis, no changes
+
+# -- UseDefault Codes, controls value returned when record field not found or is null
+# -- Default (zero value) is "" for string and 0 for int
+#	DefaultAlways   = "always"   // on not found or null return zero value
+#	DefaultNever    = "never"    // return error if notfound or null
+#	DefaultIsNull   = "isnull"   // if null, return zero value, not found is error
+#	DefaultNotFound = "notfound" // if not found, return zero value, null is error

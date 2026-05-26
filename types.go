@@ -13,6 +13,11 @@ type Request interface {
 	Run(*bolt.Tx) (*Response, error) // executes the request
 }
 
+type CsvExport interface {
+	CsvHeader(includeJoins bool) []string
+	CsvData(includeJoins bool) []string
+}
+
 // FldFormat is used by MergeFlds in rec.go, typically for creating index keys.
 // Strings - padded to right with spaces or truncated as needed.
 // Ints - leading zeros added as needed.

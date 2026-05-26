@@ -19,7 +19,8 @@ Generally speaking bobb is fast. Get operations that use a key range are super f
 
 **See [demo/demo.go](../demo/demo.go) for usage examples**
 
-Detail documentation is contained in source code files. 
+**Detail documentation** is contained in source code files. 
+
 * Adding/Updating records using PutRequest, PutIndexRequest - see requests_put.go
 * Query - see requests_qry.go
 * Getting specific records or records in key range - see requests_get.go 
@@ -75,3 +76,7 @@ When loading a large number of data or index entries, it may be faster to load i
 Some operations provide a UseDefault option which controls what happens when a field value is missing or has a null value. Consider:  
 * query criteria or sort field 
 * value used as part of an index key 
+
+### CSV Exports
+
+The results of Qry and GetAll requests can be exported to a CSV file. The exportcsv.go program performs this process. It is a very small and simple command line (CLI) program. See exportcsv folder for all related files and information.

@@ -1,0 +1,3 @@
+requesttype: qry
+yamlreq: qry_scripts/qry1.yaml
+exportfile: export_files/qry1.csv

@@ -1,0 +1,8 @@
+# Example GetAll Request (yaml labels should be all lower case, unless yaml tags are defined)
+
+bktname:  location
+indexbkt: location_zip_index
+startkey: "50000"
+endkey:   "59999"
+limit:    50
+errlimit: 0

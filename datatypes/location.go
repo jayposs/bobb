@@ -2,6 +2,8 @@ package datatypes
 
 import (
 	"errors"
+	"slices"
+	"strconv"
 )
 
 // Agent is internal to Location
@@ -28,18 +30,37 @@ type Location struct {
 	ManagerId    string   `json:"managerId"`
 	ManagerName  string   `json:"manager_name,omitempty"`  // used for join testing in bigqry.go
 	ManagerLevel string   `json:"manager_level,omitempty"` // used for join testing in bigqry.go
-	Long1        string
+	Long1        string   // used for random testing
 	Long2        string
 	Long3        string
 	Int1         int
 	Int2         int
 }
 
+// RecId method required for
 func (rec Location) RecId() string {
 	return rec.Id
 }
 
+func (rec *Location) CsvHeader(includeJoins bool) []string {
+	csvHeader := []string{"Id", "Address", "City", "St", "Zip", "LocType"}
+	if includeJoins {
+		return slices.Concat(csvHeader, []string{"ManagerName"})
+	}
+	return csvHeader
+}
+
+func (rec *Location) CsvData(includeJoins bool) []string {
+	locType := strconv.Itoa(rec.LocationType)
+	csvData := []string{rec.Id, rec.Address, rec.City, rec.St, rec.Zip, locType}
+	if includeJoins {
+		return slices.Concat(csvData, []string{rec.ManagerName})
+	}
+	return csvData
+}
+
 // Update method uses a map to update specific fields in a Location record.
+// This method is just an example of how an update of specific values might work.
 func (rec *Location) Update(updates map[string]any) error {
 	var err error
 	var ok bool
