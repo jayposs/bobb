@@ -7,7 +7,7 @@ Bobb attempts to find a good balance of small code size, simplicity, speed, and 
 ### Documentation
 * Folder "info" contains documentation files
 * See install.txt for setup steps
-* See guide-to-bobb.md for general information
+* See [guide-to-bobb.md](info/guide-to-bobb.md) for general information
     
 ### Key Features
 * Http Server that allows multiple programs to simultaneously access the same database
