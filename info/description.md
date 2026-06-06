@@ -1,6 +1,6 @@
-## Bobb — JSON Database with HTTP Access
+## bobb — JSON Database with HTTP Access
 
-Bobb is a lightweight JSON database server for Go applications. It wraps bbolt, a proven embedded key-value store and adds an HTTP layer, a query engine, and automatic secondary index management on top of it.  
+A lightweight JSON database server for Go applications. It wraps bbolt, a proven embedded key-value store and adds an HTTP layer, a query engine, and automatic secondary index management on top of it.  
 
 ### What it gives you
 
@@ -19,6 +19,8 @@ Bobb is a lightweight JSON database server for Go applications. It wraps bbolt, 
 * Moderate data volumes where simplicity of JSON is better match than relational options.
 
 ### Simplicity of Design
+
+Process flow is very straight forward. It is easy to follow the code logic.
 
 Example http routes, they all work the same way:
 ```
@@ -40,6 +42,6 @@ The "process" func called by the HandleFunc:
 1. Decodes http request body into the request type struct
 2. Calls the Run method
 
-Get* request types are in the requests_get.go file.  
-Put* request types are in requests_put.go file.  
-Qry request type is in requests_qry.go file.
+RequestTypes of same operation family (ex. Get*, Put*) are in requests_opfamily.go.
+For example Get, GetAll, GetOne request types are in requests_get.go 
+

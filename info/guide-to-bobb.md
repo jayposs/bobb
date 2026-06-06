@@ -80,3 +80,35 @@ Some operations provide a UseDefault option which controls what happens when a f
 ### CSV Exports
 
 The results of Qry and GetAll requests can be exported to a CSV file. The exportcsv.go program performs this process. It is a very small and simple command line (CLI) program. See exportcsv folder for all related files and information.
+
+### Code Directory
+* bobb_server
+    * bobb_server.go - the http server
+    * routes_std.go - http routing
+    * bobb_settings.json - startup parameters
+* client
+    * client.go - Run func that sends http request and receives response
+    * data_conversion.go - funcs to convert json to Go types
+    * util.go - shortcut funcs
+* demo
+    * demo.go - executes and verifies bobb operations
+* exportcsv
+    * exportcsv.go - CLI (command line) pgm that executes requests and ouputs results in csv format
+    * exportcsv_settings.yaml - execution parms 
+* requests_*.go files - request types
+* types.go - types used by multiple request types
+    * Response type
+    * Request interface
+    * CsvExport interface
+    * FldFormat type (used when constructing multi field keys)
+    * BobbErr type
+* codes.go - constants used by request operations
+* util.go - misc global funcs and values loaded from bobb_settings.json
+* rec.go - funcs performing various operations using individual records    
+* indexr.go - indexr type that performs indexing operations, called by Put requests.
+* readloop.go - bucket loop code used by numerous request types
+* bulkload/bulkload.go - template for volume loading of records
+* indexloader/indexloader.go - example pgm for bulk loading index records
+* stress/stress.go - long running test
+* scripts - various shell scripts using curl to execute server commands
+* test - Go test funcs
