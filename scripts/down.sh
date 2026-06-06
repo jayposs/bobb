@@ -1,1 +1,1 @@
-curl http://localhost:8000/down
+curl http://localhost:50555/down
