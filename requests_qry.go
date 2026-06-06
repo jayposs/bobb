@@ -138,7 +138,7 @@ func (req *QryRequest) Run(tx *bolt.Tx) (*Response, error) {
 
 	var parsedRec *fastjson.Value
 	var bErr *BobbErr
-	var keep bool // used to indicate if rec meets either FindConditions, FindOrConditions
+	var keep bool // used to indicate if rec meets either FindConditions
 	var sortVals []string
 
 	Trace("__ Qry find start __")

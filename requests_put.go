@@ -15,12 +15,12 @@ import (
 
 /*
 Put requests add or replace entries in a bucket. If the key already exists, the entry value is replaced,
-else a new entry is added. The key value must be contained in the KeyField in each record (typicaly "id").
+else a new entry is added. The key value must be contained in the KeyField in each record, defaults to defaultKeyFld
+in bobb_settings.json.
 
 Multiple buckets can be loaded in a single PutRequest. If there is an error, all updates will be rolled back.
 
-By default (see IndexingOption for options) any IndexSettings found, for the target bucket, will be used to automatically
-update associated index buckets.
+See IndexSetting type in requests_index.go for information on indexing.
 
 If a suffix is auto added to the key (see AddKeySuffix), the full key will be returned in resp.PutKeys,
 so caller can see keys used.
@@ -29,7 +29,7 @@ so caller can see keys used.
 // PutParm(s) used by PutRequest to specify parameters for each put operation.
 type PutParm struct {
 	BktName        string   // data bkt where recs will be put, created if not exists
-	KeyField       string   // fld in recs containing key value, default is DefaultKeyFld from bobb_settings.json
+	KeyField       string   // fld in recs containing key value, default is defaultKeyFld from bobb_settings.json
 	Recs           [][]byte // typically json marshaled value of records
 	RequiredFlds   []string // optional, fld names that must be included in recs
 	AddKeySuffix   bool     // if true, add bkt NextSeq# to end of key
@@ -68,10 +68,9 @@ func (req *PutRequest) Run(tx *bolt.Tx) (*Response, error) {
 	for _, p := range req.PutParms {
 		totalRecs += len(p.Recs)
 	}
-	resp.Recs = make([][]byte, 0, totalRecs) // loaded with keys used by putRec(), needed when AddKeySuffix is true
-
 	resp.PutKeys = make(map[int][]string, len(req.PutParms)) // initialize map to hold keys used for each PutParm
 
+	// -- Outer Loop, Executed once for each PutParm -----------------------------
 	for parmNo, parms := range req.PutParms {
 		err := validatePutParms(&parms) // validatePutParms also sets default values for certain parms if not included in request
 		if err != nil {
@@ -106,8 +105,7 @@ func (req *PutRequest) Run(tx *bolt.Tx) (*Response, error) {
 		}
 		putKeys = make([]string, 0, len(parms.Recs)) // initialize slice to hold keys used for this PutParm
 
-		// -- PROCESS RECS LOOP -------------------------------------------------
-
+		// -- Inner Loop, Executed Once For Each Record -------------------------------------------------
 		for recNo, rec := range parms.Recs { // parms.Recs is [][]byte
 
 			// parse input rec ([]byte) to *fastjson.Value
@@ -125,7 +123,7 @@ func (req *PutRequest) Run(tx *bolt.Tx) (*Response, error) {
 				return resp, ErrBadInputData // trans will be rolled back
 			}
 			recKey = make([]byte, len(keyBytes))
-			copy(recKey, keyBytes) // make copy of keyBytes since recKey may be modified if AddKeySuffix is true, and we don't want to modify original keyBytes in fastjson.Value
+			copy(recKey, keyBytes) // make copy of keyBytes since recKey may be modified if AddKeySuffix is true, may not be safe to modify keyBytes
 
 			// verify required fields are present in parsedRec
 			for _, fld := range parms.RequiredFlds {
@@ -135,7 +133,7 @@ func (req *PutRequest) Run(tx *bolt.Tx) (*Response, error) {
 					return resp, ErrBadInputData // trans will be rolled back
 				}
 			}
-			// if parms.AddKeySuffix, add bkt NextSeq# to end of key
+			// if parms.AddKeySuffix, add bkt NextSeq# to end of key and update key field value in input rec
 			if parms.AddKeySuffix {
 				seqNo, err := bkt.NextSequence()
 				if err != nil {
@@ -146,6 +144,8 @@ func (req *PutRequest) Run(tx *bolt.Tx) (*Response, error) {
 				}
 				suffix := fmt.Sprintf(suffixFormat, seqNo)
 				recKey = append(recKey, []byte(suffix)...)
+
+				// fastjson.Value (fastKey) is required to update parsedRec
 				fastKey, err := fastjson.Parse(`"` + string(recKey) + `"`) // keys with special characters may cause Parse to fail
 				if err != nil {
 					log.Println("fastjson.Parse failed for key with suffix -", string(recKey), err)
@@ -156,7 +156,7 @@ func (req *PutRequest) Run(tx *bolt.Tx) (*Response, error) {
 				parsedRec.Set(parms.KeyField, fastKey) // update parsedRec with new key that includes suffix
 				rec = parsedRec.MarshalTo(nil)         // set rec to updated marshaled value, []byte
 			}
-			// put rec in bkt
+
 			err = bkt.Put(recKey, rec)
 			if err != nil {
 				log.Println("bkt.Put failed -", parms.BktName, err)
@@ -164,13 +164,8 @@ func (req *PutRequest) Run(tx *bolt.Tx) (*Response, error) {
 				resp.Msg = "PutRequest failed, error in bkt.Put-" + parms.BktName + "-" + err.Error()
 				return resp, err // trans will be rolled back
 			}
-			// add key used in "put" to resp.PutKeys[parmNo], may be needed by caller if suffix was added
-			respRecKey := make([]byte, len(recKey))
-			copy(respRecKey, recKey)   // preserve recKey for use in indexing and/or logging
-			if len(req.PutParms) > 1 { // if multiple PutParms, add parmNo prefix to recKey to indicate which PutParm it came from
-				respRecKey = fmt.Appendf(nil, "%d-%s", parmNo, string(respRecKey)) // using fmt.Appendf with nil is more efficient than Sprintf
-			}
-			putKeys = append(putKeys, string(respRecKey))
+			// add key used in bkt.Put to resp.PutKeys[parmNo], may be needed by caller if suffix was added
+			putKeys = append(putKeys, string(recKey))
 
 			resp.PutCnt++
 
@@ -196,8 +191,8 @@ func (req *PutRequest) Run(tx *bolt.Tx) (*Response, error) {
 					}
 				}
 			}
-		} // end of loop for recs in PutParms
-	} // end of loop for PutParms
+		} // end of inner loop for recs in each PutParm
+	} // end of outer loop for PutParms
 
 	resp.PutKeys[putKeysNdx] = putKeys // add keys used for last PutParm to resp.PutKeys map
 
@@ -226,6 +221,7 @@ func validatePutParms(parms *PutParm) error {
 }
 
 // loadIndexrs loads indexrs for a data bkt using index settings from index_settings bkt
+// The Indexr type which performs the indexing operations, is defined in indexr.go.
 func loadIndexrs(tx *bolt.Tx, dataBkt string) (indexrs []Indexr, err error) {
 
 	settingsBkt := tx.Bucket([]byte(IndexSettingsBkt))
