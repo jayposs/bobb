@@ -17,7 +17,7 @@ Generally speaking bobb is fast. Get operations that use a key range are super f
 
 **Review [Bolt/Bbolt (etcd-io/bbolt)](https://github.com/etcd-io/bbolt#caveats--limitations) documentation**
 
-**See [demo/demo.go](../demo/demo.go) for usage examples**
+**See [demo/demo.go](../demo/demo.go) for usage examples** : go run demo.go
 
 **Detail documentation** is contained in source code files. 
 
