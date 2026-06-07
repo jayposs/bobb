@@ -275,13 +275,13 @@ func putOneLog() {
 	bo.DeleteBkt(httpClient, tempBkt)
 	bo.DeleteBkt(httpClient, tempBkt+"_putlog")
 
-	rec := Location{Id: "LogTest1", Address: "345 Doodle Way"}
+	rec := data.Location{Id: "LogTest1", Address: "345 Doodle Way"}
 	resp, err := bo.PutOne(httpClient, tempBkt, &rec, nil, bo.PutLogPut, bo.PutAddKeySuffix)
 	checkResp(resp, err, "putOneLog")
 
 	// verify data record exists with key suffix appended
 	putId := rec.Id + "00000001"
-	var result Location
+	var result data.Location
 	if err = bo.GetOne(httpClient, tempBkt, putId, &result); err != nil {
 		log.Fatalf("putOneLog: GetOne failed for key %s: %v", putId, err)
 	}
@@ -502,7 +502,7 @@ func qryStrOptions() {
 		BktName:  locationBkt,
 		Criteria: []bobb.FindGroup{findGroup1},
 	})
-	results := bo.JsonToSlice(resp.Recs, Location{})
+	results := bo.JsonToSlice(resp.Recs, data.Location{})
 	if len(results) != 1 || results[0].Id != "101" {
 		log.Fatalln("qryStrOptions: expected single result with id 101")
 	}
@@ -519,12 +519,12 @@ func qryCustomData() {
 
 	bo.DeleteBkt(httpClient, "qryCustomData")
 
-	data := []Location{
+	locData := []data.Location{
 		{Id: "1", Address: "400 Hunter", LocationType: 0},
 		{Id: "2", Address: "299 Milkyway", LocationType: 0},
 		{Id: "3", Address: "76 Fireball", LocationType: 9},
 	}
-	resp, err := bo.Put(httpClient, "qryCustomData", bo.SliceToJson(data), nil)
+	resp, err := bo.Put(httpClient, "qryCustomData", bo.SliceToJson(locData), nil)
 	checkResp(resp, err, "qryCustomData put")
 
 	resp, err = bo.Run(httpClient, bobb.OpQry, bobb.QryRequest{
@@ -536,7 +536,7 @@ func qryCustomData() {
 	})
 	checkResp(resp, err, "qryCustomData qry")
 
-	results := bo.JsonToSlice(resp.Recs, Location{})
+	results := bo.JsonToSlice(resp.Recs, data.Location{})
 	if len(results) != 2 || results[0].Address != "299 Milkyway" || results[1].Address != "400 Hunter" {
 		log.Fatalln("qryCustomData: results incorrect", results)
 	}
@@ -628,7 +628,7 @@ func qryContainsWord() {
 		},
 	})
 	checkResp(resp, err, "qryContainsWord FindContainsWord")
-	results := bo.JsonToMap(resp.Recs, Location{})
+	results := bo.JsonToMap(resp.Recs, data.Location{})
 	if len(results) != 1 {
 		log.Fatalf("qryContainsWord FindContainsWord: expected 1, got %d", len(results))
 	}
@@ -646,7 +646,7 @@ func qryContainsWord() {
 		ErrLimit: 2,
 	})
 	checkResp(resp, err, "qryContainsWord FindEndsWith")
-	results = bo.JsonToMap(resp.Recs, Location{})
+	results = bo.JsonToMap(resp.Recs, data.Location{})
 	if len(results) != 1 {
 		log.Fatalf("qryContainsWord FindEndsWith: expected 1, got %d", len(results))
 	}
@@ -663,7 +663,7 @@ func qryContainsWord() {
 	})
 	checkResp(resp, err, "qryContainsWord FindStartsWith")
 
-	results = bo.JsonToMap(resp.Recs, Location{})
+	results = bo.JsonToMap(resp.Recs, data.Location{})
 	if len(results) != 1 {
 		log.Fatalf("qryContainsWord FindStartsWith: expected 1, got %d", len(results))
 	}
@@ -839,7 +839,7 @@ func testIndexSetting() {
 	checkResp(resp, err, "testIndexSetting - IndexSettingRequest")
 
 	// Put records — PutRequest auto-creates index entries
-	testRecs := []Location{
+	testRecs := []data.Location{
 		{Id: "t1", City: "Memphis", St: "TN", Address: "1 Elm St", Zip: "38101"},
 		{Id: "t2", City: "Austin", St: "TX", Address: "2 Oak Ave", Zip: "78701"},
 		{Id: "t3", City: "Portland", St: "OR", Address: "3 Pine Rd", Zip: "97201"},
@@ -882,7 +882,7 @@ func testIndexSetting() {
 	resp, err = bo.Run(httpClient, bobb.OpGetAll, bobb.GetAllRequest{BktName: testBkt, IndexBkt: testCityIndex})
 	checkResp(resp, err, "testIndexSetting - GetAll via index")
 
-	results := bo.JsonToSlice(resp.Recs, Location{})
+	results := bo.JsonToSlice(resp.Recs, data.Location{})
 	if len(results) != len(testRecs) {
 		log.Fatalf("testIndexSetting: GetAll returned %d recs, expected %d", len(results), len(testRecs))
 	}
@@ -916,7 +916,7 @@ func update(id string) {
 	original.LastActionDt = dateStamp
 	locationData[id] = original
 
-	var currRec Location
+	var currRec data.Location
 	if err := bo.GetOne(httpClient, locationBkt, id, &currRec); err != nil {
 		log.Fatalln("update: GetOne failed:", err)
 	}
@@ -998,7 +998,7 @@ func errDefaults() {
 		log.Fatalf("errDefaults: expected 3 errors, got %d", len(resp.Errs))
 	}
 	for i, bobbErr := range resp.Errs {
-		var val Location
+		var val data.Location
 		json.Unmarshal(bobbErr.Val, &val)
 		log.Printf("errDefaults error %d: %s %s %s", i, bobbErr.ErrCode, bobbErr.Msg, string(bobbErr.Key))
 	}
@@ -1045,8 +1045,8 @@ func putBkts() {
 	bo.DeleteBkt(httpClient, "order")
 	bo.DeleteBkt(httpClient, "order_item")
 
-	order1 := Order{Id: "00377_00005244", OrderDate: "2024-05-23", CustomerId: "00377"}
-	items := []OrderItem{
+	order1 := data.Order{Id: "00377_00005244", OrderDate: "2024-05-23", CustomerId: "00377"}
+	items := []data.OrderItem{
 		{"00377_00005244_001", "00377_00005244", 1, "A4576", 2},
 		{"00377_00005244_002", "00377_00005244", 2, "A1721", 1},
 		{"00377_00005244_003", "00377_00005244", 3, "C1600", 5},
@@ -1067,7 +1067,7 @@ func putBkts() {
 	checkResp(resp, runErr, "putBkts")
 
 	// verify order
-	var savedOrder Order
+	var savedOrder data.Order
 	bo.GetOne(httpClient, "order", order1.Id, &savedOrder)
 	if order1 != savedOrder {
 		log.Fatalln("putBkts: saved order does not match sent order")
@@ -1079,7 +1079,7 @@ func putBkts() {
 		StartKey: "00377_00005244",
 		EndKey:   "00377_00005244",
 	})
-	results := bo.JsonToSlice(resp2.Recs, OrderItem{})
+	results := bo.JsonToSlice(resp2.Recs, data.OrderItem{})
 	if len(results) != 3 {
 		log.Fatalf("putBkts: expected 3 order items, got %d", len(results))
 	}
@@ -1121,8 +1121,8 @@ func qryJoin() {
 	})
 	checkResp(resp, err, "qryJoin")
 
-	results := bo.JsonToSlice(resp.Recs, Request{})
-	expectedResults := []Request{
+	results := bo.JsonToSlice(resp.Recs, data.Request{})
+	expectedResults := []data.Request{
 		{Id: "2024-10-16 002", LocationId: "103", Description: "replace front camera", LocationSt: "TN", LocationCity: "Tuggville", LocationAddress: "103 Big Way Ave"},
 		{Id: "2024-10-16 001", LocationId: "102", Description: "check on landscaping", LocationSt: "TN", LocationCity: "Hangover", LocationAddress: "102 Nomad Lane"},
 	}
@@ -1144,7 +1144,7 @@ func qryJoin() {
 func putAddKeySuffix() {
 	log.Println("-- putAddKeySuffix starting -----")
 
-	newRecs := []Location{
+	newRecs := []data.Location{
 		{Id: "beaver", St: "UT", City: "Beaver", Address: "1 Main St"},
 		{Id: "fox", St: "UT", City: "RedTail", Address: "28 Trout Rd"},
 	}
@@ -1170,7 +1170,7 @@ func putAddKeySuffix() {
 		Keys:    []string{"beaver00000001", "fox00000002"},
 	}
 	resp2, _ := bo.Run(httpClient, bobb.OpGet, req2)
-	results := bo.JsonToMap(resp2.Recs, Location{})
+	results := bo.JsonToMap(resp2.Recs, data.Location{})
 
 	if results["beaver00000001"].City != "Beaver" || results["fox00000002"].City != "RedTail" {
 		log.Fatalln("putAddKeySuffix: records not found with expected keys")
@@ -1229,7 +1229,7 @@ func searchKeys() {
 	bo.CreateBkt(httpClient, testBkt)
 	defer bo.DeleteBkt(httpClient, testBkt)
 
-	recs := []Location{
+	recs := []data.Location{
 		{Id: "ca|angelrock  |4800billst", St: "CA", City: "Angel Rock", Address: "4800 Bill St"},
 		{Id: "fl|watertown  |120phillips", St: "FL", City: "Watertown", Address: "120 Phillips"},
 		{Id: "ca|angelflow  |1008linkwood", St: "CA", City: "Angelflow", Address: "1008 Linkwood"},
@@ -1251,7 +1251,7 @@ func searchKeys() {
 	if len(resp.Recs) != 2 {
 		log.Fatalf("searchKeys: expected 2 recs, got %d", len(resp.Recs))
 	}
-	respRecs := bo.JsonToSlice(resp.Recs, Location{})
+	respRecs := bo.JsonToSlice(resp.Recs, data.Location{})
 	if respRecs[0].City != "Angelflow" && respRecs[1].City != "Angel Rock" {
 		log.Fatalln("searchKeys: unexpected cities:", respRecs[0].City, respRecs[1].City)
 	}
