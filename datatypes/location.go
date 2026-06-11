@@ -42,7 +42,7 @@ func (rec Location) RecId() string {
 	return rec.Id
 }
 
-func (rec *Location) CsvHeader(includeJoins bool) []string {
+func (rec Location) CsvHeader(includeJoins bool) []string {
 	csvHeader := []string{"Id", "Address", "City", "St", "Zip", "LocType"}
 	if includeJoins {
 		return slices.Concat(csvHeader, []string{"ManagerName"})
@@ -50,7 +50,7 @@ func (rec *Location) CsvHeader(includeJoins bool) []string {
 	return csvHeader
 }
 
-func (rec *Location) CsvData(includeJoins bool) []string {
+func (rec Location) CsvData(includeJoins bool) []string {
 	locType := strconv.Itoa(rec.LocationType)
 	csvData := []string{rec.Id, rec.Address, rec.City, rec.St, rec.Zip, locType}
 	if includeJoins {

@@ -1,5 +1,9 @@
 package datatypes
 
+import (
+	"slices"
+)
+
 // Request type used to test joins with Location
 type Request struct {
 	Id              string `json:"id"`
@@ -12,4 +16,20 @@ type Request struct {
 
 func (rec Request) RecId() string {
 	return rec.Id
+}
+
+func (rec Request) CsvHeader(includeJoins bool) []string {
+	csvHeader := []string{"Id", "Description", "Location City"}
+	if includeJoins {
+		return slices.Concat(csvHeader, []string{"Location City"})
+	}
+	return csvHeader
+}
+
+func (rec Request) CsvData(includeJoins bool) []string {
+	csvData := []string{rec.Id, rec.Description}
+	if includeJoins {
+		return slices.Concat(csvData, []string{rec.LocationCity})
+	}
+	return csvData
 }

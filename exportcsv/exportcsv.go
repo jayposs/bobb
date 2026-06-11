@@ -130,13 +130,19 @@ func writeCsvFile(bktName string, recs [][]byte, exportFile string, includeJoins
 
 	var dataRecord bobb.CsvExport // CsvExport is interface type (see types.go)
 	for i, rec := range recs {
-		dataRecord = data.CsvDataRec(rec, bktName) // get instance of bkt dataType populated from rec jsonBytes
+		dataRecord, err = data.CsvDataRec(rec, bktName) // get instance of bkt dataType populated from rec jsonBytes
+		if err != nil {
+			fmt.Println("dataRecord for bktName not returned, by data.CsvDataRec func:", bktName, err)
+			os.Exit(1)
+		}
 		if i == 0 {
-			if err := writer.Write(dataRecord.CsvHeader(includeJoins)); err != nil {
+			headers := dataRecord.CsvHeader(includeJoins)
+			if err := writer.Write(headers); err != nil {
 				fmt.Println("error writing csv header:", err)
 			}
 		}
-		if err := writer.Write(dataRecord.CsvData(includeJoins)); err != nil {
+		dataVals := dataRecord.CsvData(includeJoins)
+		if err := writer.Write(dataVals); err != nil {
 			fmt.Println("error writing csv data line:", err)
 		}
 	}
