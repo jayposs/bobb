@@ -20,9 +20,7 @@ A lightweight JSON database server for Go applications. It wraps bbolt, a proven
 
 ### Simplicity of Design
 
-Process flow is very straight forward. It is easy to follow the code logic.
-
-Example http routes, they all work the same way:
+Process flow is very straight forward. Example http routes, they all work the same way:
 ```
     http.HandleFunc("/get", func(w http.ResponseWriter, r *http.Request) {
 		var req bobb.GetRequest
@@ -45,3 +43,6 @@ The "process" func called by the HandleFunc:
 RequestTypes of same operation family (ex. Get*, Put*) are in requests_opfamily.go.
 For example Get, GetAll, GetOne request types are in requests_get.go 
 
+### Motivation
+Need for small, simple document style database that works easily with Go. Feature set includes common
+database operations such as queries with indexes. 
