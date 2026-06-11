@@ -6,7 +6,7 @@ Bobb attempts to find a good balance of small code size, simplicity, speed, and 
 
 ### Documentation
 * Folder "info" contains documentation files
-* See install.txt for setup steps
+* See [install.txt](info/install.txt) for setup steps
 * See [guide-to-bobb.md](info/guide-to-bobb.md) for general information
     
 ### Key Features
@@ -26,7 +26,7 @@ Bobb attempts to find a good balance of small code size, simplicity, speed, and 
     ...
     req := bobb.GetAllRequest{
 		BktName:  "inquiry",
-		IndexBkt: "inquiry-timestamp-index",
+		IndexBkt: "inquiry_timestamp_index",
 		StartKey: "2021-01-00 00:00:00",
 		EndKey:   "2021-03-31 99:99:99",
 	}

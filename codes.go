@@ -21,8 +21,6 @@ const (
 	OpGetAllKeys   = "getallkeys"
 	OpQry          = "qry"
 	OpPut          = "put"
-	OpPutOne       = "putone"
-	OpPutBkts      = "putbkts"
 	OpPutIndex     = "putindex"
 	OpDelete       = "delete"
 	OpVerifyIndex  = "verifyindex"
