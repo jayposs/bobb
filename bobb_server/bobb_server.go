@@ -112,46 +112,46 @@ func main() {
 // Parm req is pointer to request type which implements bobb.Request interface.
 func process(op string, req bobb.Request, w http.ResponseWriter, r *http.Request) {
 
-	defer r.Body.Close()
-
 	if bobb.ServerStatus.Get() != "running" {
 		http.Error(w, "server not accepting requests", http.StatusServiceUnavailable)
 		return
 	}
 
-	decoder := json.NewDecoder(r.Body)
-	err := decoder.Decode(&req)
-	if err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		log.Println("Error decoding JSON", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	// updateFunc is called for update Requests
-	var updateFunc = func(tx *bolt.Tx) error {
-		response, err := req.Run(tx)
-		if err == nil || err == bobb.ErrBadInputData { // allow bobb.ErrBadInputData to be returned to caller in normal response
-			writeResponse(response, w)
-		} else {
+	var response *bobb.Response
+	var err error
+
+	// NOTE - updt vs view requests
+	// updt(put) req cannot have refs to bolt values in response
+	//		writeResponse is executed outside bolt trans
+	// view(get,qry) req can have refs to bolt values in response
+	//		writeResponse is executed inside bolt trans
+	// response refs to bolt values are valid only inside a bolt trans
+	// bolt allows concurrent View trans but not concurrent Update trans,
+	//    updt trans holds the database's exclusive write-lock for the entire duration of the network I/O
+	if req.IsUpdtReq() {
+		db.Update(func(tx *bolt.Tx) error {
+			response, err = req.Run(tx)
+			return err
+		})
+		if err != nil && err != bobb.ErrBadInputData {
 			log.Println("DB Error Occured - Update transaction rolled  back", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
+		} else {
+			writeResponse(response, w) // executed outside db transaction
 		}
-		return err // non nil err will cause bbolt to rollback the transaction
-	}
-
-	// viewFunc is called for read Requests
-	var viewFunc = func(tx *bolt.Tx) error {
-		response, _ := req.Run(tx) // View requests always return nil err
-		writeResponse(response, w)
-		return nil
-	}
-
-	if req.IsUpdtReq() {
-		db.Update(updateFunc)
 	} else {
-		db.View(viewFunc)
+		db.View(func(tx *bolt.Tx) error {
+			response, err = req.Run(tx) // View requests always return nil err
+			writeResponse(response, w)  // executed inside db transaction
+			return err
+		})
 	}
-
 	bobb.Trace(op + " == request complete ==")
 }
 
