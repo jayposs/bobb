@@ -44,6 +44,8 @@ var gzipWriterPool = &sync.Pool{
 	},
 }
 
+var mux *http.ServeMux = http.NewServeMux()
+
 func main() {
 	var err error
 
@@ -81,10 +83,13 @@ func main() {
 	fmt.Println("waiting for requests ...")
 	// log.Println(http.ListenAndServe(":"+settings.Port, nil))
 
+	// Configure and instantiate the http.Server explicitly
 	srv := &http.Server{
-		Addr: ":" + settings.Port,
+		Addr:         ":" + settings.Port,
+		Handler:      mux, // Pass your custom router here
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
 	}
-
 	// 1. Run server in a goroutine so it doesn't block
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
