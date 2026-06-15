@@ -7,6 +7,7 @@ import (
 	"compress/gzip"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -118,7 +119,7 @@ func Run(httpClient *http.Client, op string, payload any) (*bobb.Response, error
 	var bobbResp bobb.Response
 
 	if Debug {
-		log.Println("--- DEBUG MODE ON > client receiving ---")
+		fmt.Println("--- DEBUG MODE ON > client receiving ---")
 		var resultBuffer bytes.Buffer
 		_, err = io.Copy(&resultBuffer, respReader)
 		if err != nil {
@@ -127,7 +128,7 @@ func Run(httpClient *http.Client, op string, payload any) (*bobb.Response, error
 			return nil, err
 		}
 		result := resultBuffer.Bytes()
-		log.Println(fmtJSON(result))
+		fmt.Println(fmtJSON(result))
 		err = json.Unmarshal(result, &bobbResp)
 	} else {
 		err = json.NewDecoder(respReader).Decode(&bobbResp)
@@ -137,6 +138,13 @@ func Run(httpClient *http.Client, op string, payload any) (*bobb.Response, error
 		requestFailed = true
 		log.Println("json.Decode result into bobb.Response Failed:", err)
 		return nil, err
+	}
+	if Debug && len(bobbResp.Recs) > 0 {
+		fmt.Println("-- response recs after decode into bobb.Response type")
+		for i, rec := range bobbResp.Recs {
+			fmt.Println(i, string(rec))
+			fmt.Println("------")
+		}
 	}
 	return &bobbResp, err
 }
