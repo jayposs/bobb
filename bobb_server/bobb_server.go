@@ -71,8 +71,9 @@ func main() {
 
 	customRoutes() // routing for custom requests, see routes_custom.go
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		log.Println("invalid request url:", r.RequestURI)
+	// catchall for invalid request url
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		log.Println("invalid request url:", r.URL)
 		http.Error(w, "invalid request url", http.StatusNotFound)
 	})
 
