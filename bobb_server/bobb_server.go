@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -47,9 +48,9 @@ func main() {
 	var err error
 
 	// if cmd flag -settings not entered, pgm will look for bobb-settings.json in current dir.
-	settingsPath := flag.String("settings", "", "add -settings cmd line option to specify where bobb-settings.json is located")
+	pathPrefix := flag.String("settings", "", "add -settings cmd line option to specify dir where bobb-settings.json is located")
 	flag.Parse()
-	loadSettings(*settingsPath + "bobb_settings.json") // loadSettings func is below
+	loadSettings(*pathPrefix) // loadSettings func is below
 	fmt.Println("-- Settings --")
 	fmt.Printf("%+v\n", settings)
 
@@ -155,7 +156,15 @@ func process(op string, req bobb.Request, w http.ResponseWriter, r *http.Request
 	bobb.Trace(op + " == request complete ==")
 }
 
-func loadSettings(fileName string) {
+func loadSettings(pathPrefix string) {
+	var fileName string
+	pathPrefix = strings.TrimSpace(pathPrefix)
+	if pathPrefix != "" && !strings.HasSuffix(pathPrefix, "/") {
+		pathPrefix += "/"
+	}
+	fileName = pathPrefix + "bobb_settings.json"
+	log.Println("bobb settings file:", fileName)
+
 	jsonSettings, err := os.ReadFile(fileName)
 	if err != nil {
 		log.Fatalln("error opening Settings File", err)
