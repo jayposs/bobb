@@ -1,6 +1,6 @@
 ## bobb — JSON Database with HTTP Access
 
-A lightweight JSON database server for Go applications. It takes bbolt, a proven embedded key-value store and adds an HTTP layer, data management, query features, and secondary indexing on top of it. Bobb uses a minimal amout of code exposing the raw performance of both bbolt and fastjson.  
+A lightweight JSON database server for Go applications. It takes bbolt, a proven embedded key-value store and adds an HTTP layer, data management, query features, and secondary indexing on top of it. Bobb uses a minimal amount of code exposing the raw performance of both bbolt and fastjson. For information on these tools, search using AI mode the reputation of each.
 
 ### What it gives you
 
