@@ -22,15 +22,15 @@ A lightweight JSON database server for Go applications. It wraps bbolt, a proven
 
 Process flow is very straight forward. Example http routes, they all work the same way:
 ```
-    http.HandleFunc("/get", func(w http.ResponseWriter, r *http.Request) {
+    mux.HandleFunc("/get", func(w http.ResponseWriter, r *http.Request) {
 		var req bobb.GetRequest
 		process(bobb.OpGet, &req, w, r)
 	})
-	http.HandleFunc("/put", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/put", func(w http.ResponseWriter, r *http.Request) {
 		var req bobb.PutRequest
 		process(bobb.OpPut, &req, w, r)
 	})
-	http.HandleFunc("/qry", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/qry", func(w http.ResponseWriter, r *http.Request) {
 		var req bobb.QryRequest
 		process(bobb.OpQry, &req, w, r)
 	})
@@ -39,10 +39,10 @@ All request types have Run method.
 The "process" func called by the HandleFunc:
 1. Decodes http request body into the request type struct
 2. Calls the Run method
+3. Returns the standard Response type
 
 RequestTypes of same operation family (ex. Get*, Put*) are in requests_opfamily.go.
 For example Get, GetAll, GetOne request types are in requests_get.go 
 
 ### Motivation
-Need for small, simple document style database that works easily with Go. Feature set includes common
-database operations such as queries with indexes. 
+Need for small, simple document style database that works easily with Go. Has feature set that includes common database operations such as queries with indexes. 
