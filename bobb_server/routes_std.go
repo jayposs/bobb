@@ -3,7 +3,6 @@ package main
 import (
 	"log"
 	"net/http"
-	"os"
 
 	"github.com/jayposs/bobb"
 )
@@ -85,10 +84,5 @@ func stdRoutes() {
 		bobb.TraceStatus.Set("off") // see util.go
 		log.Println("tracing turned off")
 		w.WriteHeader(http.StatusOK)
-	})
-	mux.HandleFunc("/down", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		shutDown()
-		os.Exit(0)
 	})
 }

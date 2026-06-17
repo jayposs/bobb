@@ -71,6 +71,14 @@ func main() {
 
 	customRoutes() // routing for custom requests, see routes_custom.go
 
+	quit := make(chan os.Signal, 1) // see shutdown process below
+
+	// to invoke, use scripts/down.sh
+	mux.HandleFunc("/bobbdown-yy6543269xa", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		quit <- syscall.SIGTERM // Signal main to shut down natively
+	})
+
 	// catchall for invalid request url
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		log.Println("invalid request url:", r.URL)
@@ -79,40 +87,39 @@ func main() {
 
 	// --- END REQUEST ROUTING --------------------------------------------------------------
 
-	bobb.ServerStatus.Set("running") // see util.go
-
-	fmt.Println("waiting for requests ...")
-	// log.Println(http.ListenAndServe(":"+settings.Port, nil))
-
 	// Configure and instantiate the http.Server explicitly
 	srv := &http.Server{
 		Addr:         ":" + settings.Port,
 		Handler:      mux, // Pass your custom router here
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
+		ReadTimeout:  20 * time.Second,
+		WriteTimeout: 20 * time.Second,
 	}
-	// 1. Run server in a goroutine so it doesn't block
+	// Run server in a goroutine so it doesn't block
 	go func() {
+		bobb.ServerStatus.Set("running") // see util.go
+		fmt.Println("waiting for requests ...")
+
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("listen: %s\n", err)
 		}
 	}()
 
-	// 2. Wait for interrupt signal (Ctrl+C or SIGTERM)
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
-	log.Println("Shutting down server...")
+	// -- SHUTDOWN PROCESS -----------------------------------------
 
-	// 3. Create a timeout context for the shutdown
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM) // invoked by ctrl-c
+
+	<-quit // wait for signal to be received on quit channel
+	log.Println("Shutting down server after active requests complete ...")
+
+	// Create a timeout context for the shutdown
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second) // max time to wait
 	defer cancel()
 
-	// 4. Shutdown gracefully
+	// Shutdown gracefully
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Fatal("Server forced to shutdown:", err)
 	}
-	log.Println("Server exiting")
+	log.Println("Server Shutdown Complete")
 }
 
 // Func process executes the request.
@@ -205,21 +212,6 @@ func loadSettings(pathPrefix string) {
 	bobb.InitialRespRecsSize = settings.InitialRespRecsSize
 	bobb.MaxErrs = settings.MaxErrs
 	bobb.KeySuffixWidth = settings.KeySuffixWidth
-}
-
-// shutDown will wait 10 seconds to allow current requests to finish and block future requests.
-// The database file will then be closed.
-func shutDown() {
-	bobb.ServerStatus.Set("down")
-	log.Println("shutdown process started, waiting 10 secs ...")
-	time.Sleep(10 * time.Second)
-	if err := db.Close(); err != nil {
-		log.Fatalln("error closing db file", err)
-	}
-	log.Println("db closed")
-	if logFile != nil {
-		logFile.Close()
-	}
 }
 
 // writeResponse returns response to client
